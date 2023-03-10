@@ -46,41 +46,6 @@
 
 using namespace std;
 
-int N = 12;
-TH1D** hPDF = new TH1D*[N];
-TH1D** hPDF_Gen = new TH1D*[N];
-
-TH1D** hPDF_Nig = new TH1D*[N];
-TH1D** hPDF_Sub = new TH1D*[N];
-
-TH1D *PseudoDataset_Nig;
-TH1D *PseudoDataset_Day;
-TH1D *PseudoDataset_Diff;
-
-int Beg, End;
-
-double density = 859.0; // [kg/m3]
-double radius_FV = 14.0;
-double Mass_FV = 4./3.*PI*pow(radius_FV,3)*density; // [m3]
-double *Threshold = new double[N];
-double *Events = new double[N];
-double *Events_Nig = new double[N];
-double *Events_Day = new double[N];
-
-double *InjRate = new double[N];
-double *InjRate_Nig = new double[N];
-double *InjRate_Day = new double[N];
-double *InjRate_AfterSampling = new double[N];
-double *Fix = new double[N]();
-double *Sigma = new double[N]();
-
-double days;
-double Exposure_LT;
-double Efficiency;
-double Exposure_LT_Nig;
-double Exposure_LT_Day;
-double Exposure_LT_Diff;
-
 double GetFloatPrecision(double value, double precision){
     return (floor((value * pow(10, precision) + 0.5)) / pow(10, precision));
 }
@@ -91,9 +56,11 @@ inline bool exists_test0 (const std::string& name) {
 }
 
 void CartesianToSpherical(double & r,double & theta,double & phi,double x,double y,double z ){
+	
+	r = sqrt(x*x+y*y+z*z);
 	if ( r != 0.0 ){
-		theta = TMath::ACos( z / r );
-		phi = TMath::ATan2( y, x );
+		phi = TMath::ACos( z / r );
+		theta = TMath::ATan2( y, x );
 		}
 	else
 	theta = phi = 0.0;
@@ -103,9 +70,45 @@ void SphericalToCartesian(double & x, double & y, double & z, double r, double t
 	if ( r < 0.0 ){
 		throw "Negative radius in sphericalToCartesian()";
 		}
-	x = r * TMath::Sin( theta ) * TMath::Cos( phi );
-	y = r * TMath::Sin( theta ) * TMath::Sin( phi );
-	z = r * TMath::Cos( theta );
+	x = r * TMath::Sin( phi ) * TMath::Cos( theta );
+	y = r * TMath::Sin( phi ) * TMath::Sin( theta );
+	z = r * TMath::Cos( phi );
+}
+
+double ClosestPMTIndex(double x_Event,double y_Event,double z_Event){
+
+	ifstream ReadPMTPosition;
+	ReadPMTPosition.open("PMTPos_CD_LPMT.csv");
+	double blank;
+	double MinDistance=50000;
+	double Distance_Temp;
+	int Index=50000;
+	int Closest=Index;
+	double r_Event, theta_Event, phi_Event;
+	double x_PMT,y_PMT,z_PMT, r_PMT, theta_PMT, phi_PMT;
+	
+	CartesianToSpherical(r_Event, theta_Event, phi_Event,x_Event, y_Event, z_Event);
+		
+	for(int i=0;i<17611;i++){
+		ReadPMTPosition >> Index;
+		ReadPMTPosition >> x_PMT;
+		ReadPMTPosition >> y_PMT;
+		ReadPMTPosition >> z_PMT;
+		ReadPMTPosition >> blank >> blank;
+		CartesianToSpherical(r_PMT, theta_PMT, phi_PMT,x_PMT,y_PMT,z_PMT);
+		Distance_Temp = r_PMT*TMath::ACos(TMath::Cos(phi_PMT)*TMath::Cos(phi_Event) + (TMath::Sin(phi_PMT)*TMath::Sin(phi_Event))*TMath::Cos(theta_PMT-theta_Event));	
+		
+		if(Distance_Temp<MinDistance){
+			Closest = Index;
+			MinDistance = Distance_Temp;
+			}
+		
+		// cout << Index << "   " << Distance_Temp << "  /   " << Closest << "   " << MinDistance << endl;	// DO NOT REMOVE
+			
+	}
+		
+	return Closest;
+
 }
 
 
@@ -136,7 +139,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	TH1F *h_Photon_Direction_y = new TH1F("h_Photon_Direction_y","h_Photon_Direction_y",500,-1,1);
 	TH1F *h_Photon_Direction_z = new TH1F("h_Photon_Direction_z","h_Photon_Direction_z",500,-1,1);
 	TH1F *h_Photon_Direction_r = new TH1F("h_Photon_Direction_r","h_Photon_Direction_r",500,-1,1);	
-
+	TH1F *h_ClosestIndex = new TH1F("h_ClosestIndex","h_ClosestIndex",2000,0,20000);	
+	
 	double RefractionIndex = 1.5;
 	double TravelledDistance = 17.5;
 	double AbsorptionLength = 80.;
@@ -149,17 +153,14 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	cout << "AbsorptionProbability = " << AbsorptionProbability << endl;
 	cout << "SurvivingProbability = " << SurvivingProbability << endl;
 			
-	for(int i=0; i<Photons; i++){
-		double xx = -1+2.*gRandom->TRandom::Uniform(1);
-		double yy = -1+2.*gRandom->TRandom::Uniform(1);
-		double zz = -1+2.*gRandom->TRandom::Uniform(1);
+	for(int iPh=0; iPh<Photons; iPh++){
+		double xx = -1+2.*gRandom->TRandom::Uniform(1);			// photon direction unit vector, x component
+		double yy = -1+2.*gRandom->TRandom::Uniform(1);			// photon direction unit vector, y component
+		double zz = -1+2.*gRandom->TRandom::Uniform(1);			// photon direction unit vector, z component
 		double xx_at_PMTs, yy_at_PMTs, zz_at_PMTs;
 		double theta;
 		double phi;
 		double norm = sqrt(xx*xx+yy*yy+zz*zz);
-		//xx = xx/norm;
-		//yy = yy/norm;
-		//zz = zz/norm;
 		Scintillation_Cartesian.push_back({xx,yy,zz});
 		InteractionVertex.push_back({0,0,0});
 		h_Photon_Direction_x->Fill(xx);
@@ -176,15 +177,23 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		
 		Scintillation_Cartesian_atPMTs.push_back({xx_at_PMTs,yy_at_PMTs,zz_at_PMTs});
 		
-		cout << i << "\t" << xx_at_PMTs << "\t" << yy_at_PMTs << "\t" << zz_at_PMTs << endl;
+		cout << iPh << "\t" << xx_at_PMTs << "\t" << yy_at_PMTs << "\t" << zz_at_PMTs << endl;
+
+		int IndexExample = ClosestPMTIndex(Scintillation_Cartesian_atPMTs[iPh][0],Scintillation_Cartesian_atPMTs[iPh][1],Scintillation_Cartesian_atPMTs[iPh][2]);
+	
+		cout << "PHOTON " << iPh << " : CLOSEST INDEX IS = " << IndexExample << endl;
+	
+		h_ClosestIndex->Fill(IndexExample);
 						
 	}
+	
 
 	TFile *foutput = new TFile (Output_Rootfile.c_str(), "RECREATE");
 	foutput->cd();
 	h_Photon_Direction_x->Write();
 	h_Photon_Direction_y->Write();
 	h_Photon_Direction_z->Write();
+	h_ClosestIndex->Write();
 	
 	foutput->Close();
 
