@@ -47,6 +47,24 @@ int PMTNumber = 17611;
 
 using namespace std;
 
+struct Tuple {
+	double x;
+	double y;
+};
+
+//to keep phi and theta in their intended range
+double Pbc_phi (double in) {
+    if (in<0) return in + M_PI;
+    else if (in>M_PI) return in - M_PI;
+    else return in;
+}
+
+double Pbc_theta (double in) {
+    if (in<0) return in + 2*M_PI;
+    else if (in>2*M_PI) return in - 2*M_PI;
+    else return in;
+}
+
 double GetFloatPrecision(double value, double precision){
     return (floor((value * pow(10, precision) + 0.5)) / pow(10, precision));
 }
@@ -117,6 +135,53 @@ double ClosestPMTIndex(double x_Event,double y_Event,double z_Event, vector<vect
 
 }
 
+Tuple Generate_Cone (double theta_0, double phi_0, double angle, TRandom* gRandom) {
+
+	Tuple out;
+    double phi_out, theta_out;
+    double theta, phi, cos_th1, cos_ph1, sin_th1, sin_ph_sin_th, sin_ph_cos_th;
+
+	//generate random values on a cone centered in 0,0
+    theta = gRandom->TRandom::Uniform(2*PI); 
+    phi = angle; 
+
+	//some exceptions
+    if (phi_0 == 0) {
+
+        phi_out = phi;
+        theta_out = theta;
+        
+
+    } else if (phi_0 == M_PI) {
+
+        phi_out = PI - phi;
+        theta_out = theta;
+
+	// traslate the cone on the original system
+    } else {
+
+        cos_ph1 = -sin(phi_0)*cos(theta)*sin(phi) + cos(phi_0)*cos(phi);
+        sin_ph_cos_th = cos(phi_0)*cos(theta_0)*cos(theta)*sin(phi) - sin(theta_0)*sin(theta)*sin(phi) + cos(theta_0)*sin(phi_0)*cos(phi);
+        sin_ph_sin_th = sin(theta_0)*cos(phi_0)*cos(theta)*sin(phi) + cos(theta_0)*sin(theta)*sin(phi) + sin(theta_0)*sin(phi_0)*cos(phi);        
+
+        phi_out = acos(cos_ph1);
+        cos_th1 = sin_ph_cos_th/sin(phi_out);
+        sin_th1 = sin_ph_sin_th/sin(phi_out);
+
+        if (sin_th1 >= 0) {
+            theta_out = acos(cos_th1) ;
+        } else if (sin_th1 < 0) {
+            theta_out = Pbc_theta(-acos(cos_th1));
+        }
+
+    }
+
+	out.x = theta_out;
+	out.y = phi_out;
+
+	return out;
+}
+
 
 double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, string Output_Text){
 
@@ -129,10 +194,10 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	
 	ReadCfgFile >> LY;
 	cout << LY << endl;
-
-	gRandom = new TRandom3(0);
-	gRandom->SetSeed(0);
 	
+	gRandom = new TRandom3(0);
+    gRandom->SetSeed(0);
+
 	int Photons = LY;
 	
 	std::vector<vector<double>> Scintillation_Cartesian;
@@ -178,7 +243,10 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		PMT_Position_Spherical.push_back({r_PMT,theta_PMT,phi_PMT});
 		//cout << "x " << x_PMT << "  y  " <<   y_PMT << "  z  " << z_PMT <<  endl;			
 	}	
-			
+
+	ofstream WriteOutputText;
+	WriteOutputText.open(Output_Text.c_str(),ios::app);	
+
 	for(int iPh=0; iPh<Photons; iPh++){
 
 		double xx_at_PMTs, yy_at_PMTs, zz_at_PMTs;
@@ -210,10 +278,34 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 		int IndexExample = ClosestPMTIndex(Scintillation_Cartesian_atPMTs[iPh][0],Scintillation_Cartesian_atPMTs[iPh][1],Scintillation_Cartesian_atPMTs[iPh][2],PMT_Position_Spherical);
 			
-		cout << "PHOTON " << iPh << " : CLOSEST INDEX IS = " << IndexExample << endl;
+		//cout << "PHOTON " << iPh << " : CLOSEST INDEX IS = " << IndexExample << endl;
+		WriteOutputText << theta << "  " << phi << "   " << IndexExample << "  " << 0 << endl;
 	
 		h_ClosestIndex->Fill(IndexExample);
 						
+	}
+
+
+	//Generate Cherenkov Photons
+	double n = 1.55 ; //refraction index
+	double c = 299792458 ; // m/s
+	double m_e = 0.51099895; //MeV    electron mass
+	double Be7_energy = 0.862; //MeV    enegy of a 7Be neutrino
+	double Event_Energy = 0.5; //MeV
+
+	int CherenkovPhotons = 0.01*Photons;
+	double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0.5)); //angle between the solar-nu and the electron scattered (assuming 7Be-nu)
+    double beta = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
+    double theta_Cher = acos(1/(beta*n)); //Cherenkov angle
+
+	Tuple a;
+	Tuple b;
+	for (int iPh=0; iPh<CherenkovPhotons; iPh++) {
+		a = Generate_Cone(0.,0.,theta_e,gRandom);
+
+		b = Generate_Cone(a.x,a.y,theta_Cher,gRandom);
+
+		WriteOutputText << b.x << "  " << b.y << "   " << 1 << "  " << 1 << endl;
 	}
 	
 
@@ -229,8 +321,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	
 	foutput->Close();
 
-	ofstream WriteOutputText;
-	WriteOutputText.open(Output_Text.c_str(),ios::app);		   // APPENDING text output to Output_Text text file
+   // APPENDING text output to Output_Text text file
 	WriteOutputText.close();
 
 	cout << "#############" << endl;
@@ -249,7 +340,7 @@ int main(int argc, char** argv) {
 
         string Configuration_Text = argv[1];
         string Output_Rootfile = argv[2];
-	      string Output_Text = argv[3];
+	    string Output_Text = argv[3];
 
         Directionality_ToyMC(Configuration_Text, Output_Rootfile, Output_Text);
         return 0;
