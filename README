@@ -1,1 +1,5 @@
+Compile:
+make
+
+Run:
 ./Directionality_ToyMC CfgExample.txt Output.root Output.txt
