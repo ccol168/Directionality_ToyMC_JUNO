@@ -189,10 +189,12 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	ReadCfgFile.open(Configuration_Text.c_str());
 
 	int LY = 0;
+	double ChScRatio;
 	cout << "#############" << endl;
 	cout << "Cfg file: " << Configuration_Text.c_str() << endl;
 	
 	ReadCfgFile >> LY;
+	ReadCfgFile >> ChScRatio;
 	cout << LY << endl;
 	
 	gRandom = new TRandom3(0);
@@ -258,6 +260,10 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 		//Scintillation_Cartesian.push_back({xx,yy,zz});
 		InteractionVertex.push_back({0,0,0});
+		
+		if(SurvivingProbability < gRandom->TRandom::Uniform(0,1)) continue;
+		cout << SurvivingProbability << "   " << gRandom->TRandom::Uniform(0,1)) << endl;
+		
 		double xx,yy,zz;
 		SphericalToCartesian(xx,yy,zz,rr,theta,phi);
 		
@@ -282,6 +288,12 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		WriteOutputText << theta << "  " << phi << "   " << IndexExample << "  " << 0 << endl;
 	
 		h_ClosestIndex->Fill(IndexExample);
+		
+		//cout << i << "    " << iPh % (Photons/10) << endl;
+		
+		if (iPh % (Photons/10) == 0 && iPh != 0) { // check if the index is a multiple of tenth
+		std::cout << iPh << "-th photon ; " << (iPh / (Photons/10)) * 10 << "% of elements looped.\n";
+    		}
 						
 	}
 
@@ -293,10 +305,10 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	double Be7_energy = 0.862; //MeV    enegy of a 7Be neutrino
 	double Event_Energy = 0.5; //MeV
 
-	int CherenkovPhotons = 0.01*Photons;
+	int CherenkovPhotons = ChScRatio*Photons;
 	double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0.5)); //angle between the solar-nu and the electron scattered (assuming 7Be-nu)
-    double beta = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
-    double theta_Cher = acos(1/(beta*n)); //Cherenkov angle
+    	double beta = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
+    	double theta_Cher = acos(1/(beta*n)); //Cherenkov angle
 
 	Tuple a;
 	Tuple b;
