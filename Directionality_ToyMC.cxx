@@ -44,6 +44,8 @@
 #include "Math/Util.h"
 
 int PMTNumber = 17611;
+double PMTRadius = 0.25;
+double JUNORadius = 19.0;
 
 using namespace std;
 
@@ -130,8 +132,14 @@ double ClosestPMTIndex(double x_Event,double y_Event,double z_Event, vector<vect
 		//cout << theta_PMT << "  "  << phi_PMT << "    "  << Index << "   " << Distance_Temp << "  /   " << Closest << "   " << MinDistance << endl;	// DO NOT REMOVE
 			
 	}
+
+	if (MinDistance*JUNORadius <= PMTRadius) {
+		return Closest;
+	} else {
+		return 0;
+	}
 		
-	return Closest;
+	
 
 }
 
@@ -291,6 +299,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	cout<<"Neutrino-electron angle = "<<theta_e*180./M_PI<<" deg"<<endl;
 	cout<<"Cherenkov angle = "<<theta_Cher*180./M_PI<<" deg"<<endl;
 
+	int SeenPhotons = 0;
+
 	for(int iPh=0; iPh<Photons; iPh++){
 
 		//Generate unit vector over a sphere
@@ -327,9 +337,6 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		h_Photon_Direction_phi->Fill(phi);
 		*/
 
-		//cout<<"GOOOD"<<endl;
-
-
 		//Scintillation_Spherical_atPMTs.push_back({TravelledDistance,theta_t,phi_t});
 		SphericalToCartesian(x_t,y_t,z_t,r_t,theta_t,phi_t);	
 		SphericalToCartesian(xAtPMT_t,yAtPMT_t,zAtPMT_t,TravelledDistance_t,theta_t,phi_t);	
@@ -343,13 +350,19 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 			
 		//cout << "PHOTON " << iPh << " : CLOSEST INDEX IS = " << IndexExample << endl;
 
-		
-		WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
-	
-		h_ClosestIndex->Fill(Closest_PMT_t);
+		//Generate the photon only if it hits the PMT
+		if (Closest_PMT_t != 0) {
 
-		t -> Fill();
+			WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
 	
+			h_ClosestIndex->Fill(Closest_PMT_t);
+
+			t -> Fill();
+
+			SeenPhotons++;
+		} else {
+			continue;
+		}
 		
 		//cout << i << "    " << iPh % (Photons/10) << endl;
 		
@@ -389,9 +402,19 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		Start_Time_t = 0.;
 		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
 
-		WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
+		//Generate the photon only if it hits the PMT
+		if (Closest_PMT_t != 0) {
 
-		t -> Fill();
+			WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
+	
+			h_ClosestIndex->Fill(Closest_PMT_t);
+
+			t -> Fill();
+
+			SeenPhotons++;
+		} else {
+			continue;
+		}
 	}
 	
 
@@ -411,6 +434,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
    // APPENDING text output to Output_Text text file
 	WriteOutputText.close();
 
+	cout << "Geometric coverage = " << double(SeenPhotons)/double(CherenkovPhotons+Photons) <<endl;
 	cout << "#############" << endl;
 	
 	return 0;
