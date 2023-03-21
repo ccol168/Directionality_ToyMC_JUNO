@@ -299,6 +299,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	cout<<"Neutrino-electron angle = "<<theta_e*180./M_PI<<" deg"<<endl;
 	cout<<"Cherenkov angle = "<<theta_Cher*180./M_PI<<" deg"<<endl;
 
+	int SeenPhotons = 0;
+
 	for(int iPh=0; iPh<Photons; iPh++){
 
 		//Generate unit vector over a sphere
@@ -356,6 +358,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 			h_ClosestIndex->Fill(Closest_PMT_t);
 
 			t -> Fill();
+
+			SeenPhotons++;
 		} else {
 			continue;
 		}
@@ -406,6 +410,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 			h_ClosestIndex->Fill(Closest_PMT_t);
 
 			t -> Fill();
+
+			SeenPhotons++;
 		} else {
 			continue;
 		}
@@ -428,6 +434,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
    // APPENDING text output to Output_Text text file
 	WriteOutputText.close();
 
+	cout << "Geometric coverage = " << double(SeenPhotons)/double(CherenkovPhotons+Photons) <<endl;
 	cout << "#############" << endl;
 	
 	return 0;
