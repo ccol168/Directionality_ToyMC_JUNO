@@ -195,7 +195,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	
 	ReadCfgFile >> LY;
 	ReadCfgFile >> ChScRatio;
-	cout << LY << endl;
+	cout <<"Scintillation photons generated = " <<LY << endl;
 	
 	gRandom = new TRandom3(0);
     gRandom->SetSeed(0);
@@ -227,7 +227,34 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	
 	cout << "AbsorptionProbability = " << AbsorptionProbability << endl;
 	cout << "SurvivingProbability = " << SurvivingProbability << endl;
-	
+
+	//Making the tree
+	double x_t,y_t,z_t,r_t,phi_t,theta_t,Closest_PMT_t,Start_Time_t,Arr_Time_t,Electron_Energy_t,Neutrino_Energy_t,type_t;
+	double xAtPMT_t,yAtPMT_t,zAtPMT_t,TravelledDistance_t;
+	double Int_Vertex_x_t,Int_Vertex_y_t,Int_Vertex_z_t;
+	bool Type_t;
+
+	TTree *t = new TTree("t","New Tree");
+	t->Branch("x", &x_t, "x/D");
+	t->Branch("y", &y_t, "y/D");
+	t->Branch("z", &z_t, "z/D");
+	t->Branch("xAtPMT", &xAtPMT_t, "xAtPMT/D");
+	t->Branch("yAtPMT", &yAtPMT_t, "yAtPMT/D");
+	t->Branch("zAtPMT", &zAtPMT_t, "zAtPMT/D");
+	t->Branch("r", &r_t, "r/D");
+	t->Branch("TravelledDistance", &TravelledDistance_t, "TravelledDistance/D");
+	t->Branch("theta", &theta_t, "theta/D");
+	t->Branch("phi", &phi_t, "phi/D");
+	t->Branch("Closest_PMT", &Closest_PMT_t, "Closest_PMT/D");
+	t->Branch("Start_Time", &Start_Time_t, "Start_Time/D");
+	t->Branch("Arr_Time", &Arr_Time_t, "Arr_Time/D");
+	t->Branch("Electron_Energy", &Electron_Energy_t, "Electron_Energy/D");
+	t->Branch("Int_Vertex_x", &Int_Vertex_x_t, "Int_Vertex_x/D");
+	t->Branch("Int_Vertex_y", &Int_Vertex_y_t, "Int_Vertex_y/D");
+	t->Branch("Int_Vertex_z", &Int_Vertex_z_t, "Int_Vertex_z/D");
+	t->Branch("Neutrino_Energy", &Neutrino_Energy_t, "Neutrino_Energy/D");
+	t->Branch("Type", &Type_t, "Type/O");
+
 	// LOAD PMTs position
 	ifstream ReadPMTPosition;
 	ReadPMTPosition.open("PMTPos_CD_LPMT.csv");
@@ -235,7 +262,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	int Index;
 	double x_PMT,y_PMT,z_PMT, r_PMT, theta_PMT, phi_PMT;
 		
-	for(int PMT=0;PMT<PMTNumber;PMT++){		// TO BE CHANGED this is extremely not efficient since we are loading and reading the PMTs position for each photon
+	for(int PMT=0;PMT<PMTNumber;PMT++){		
 		ReadPMTPosition >> Index;
 		ReadPMTPosition >> x_PMT;
 		ReadPMTPosition >> y_PMT;
@@ -249,20 +276,45 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	ofstream WriteOutputText;
 	WriteOutputText.open(Output_Text.c_str(),ios::app);	
 
+	//Parameters for Cherenkov emission
+	double n = 1.55 ; //refraction index
+	double c = 299792458 ; // m/s
+	double m_e = 0.51099895; //MeV    electron mass
+	double Be7_energy = 0.862; //MeV    enegy of a 7Be neutrino
+	double Event_Energy = 0.5; //MeV
+
+	int CherenkovPhotons = ChScRatio*Photons;
+	double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0.5)); //angle between the solar-nu and the electron scattered (assuming 7Be-nu)
+    double beta = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
+    double theta_Cher = acos(1/(beta*n)); //Cherenkov angle
+
+	cout<<"Neutrino-electron angle = "<<theta_e*180./M_PI<<" deg"<<endl;
+	cout<<"Cherenkov angle = "<<theta_Cher*180./M_PI<<" deg"<<endl;
+
 	for(int iPh=0; iPh<Photons; iPh++){
 
-		double xx_at_PMTs, yy_at_PMTs, zz_at_PMTs;
-		
 		//Generate unit vector over a sphere
-		double rr = 1;
-		double theta = gRandom->TRandom::Uniform(2*PI);
-		double phi = TMath::ACos(-1.+2.*gRandom->TRandom::Uniform(0,1));
+		r_t = 1;
+		theta_t = gRandom->TRandom::Uniform(2*PI);
+		phi_t = TMath::ACos(-1.+2.*gRandom->TRandom::Uniform(0,1));
+		TravelledDistance_t = TravelledDistance;
+		Type_t = 0;
+		Electron_Energy_t = Event_Energy;
+		Neutrino_Energy_t = Be7_energy;
 
+		Int_Vertex_x_t = 0.;
+		Int_Vertex_y_t = 0.;
+		Int_Vertex_z_t = 0.;
+
+		Start_Time_t = gRandom -> TRandom::Exp(4*pow(10,-8));
+		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
+
+		/*
 		//Scintillation_Cartesian.push_back({xx,yy,zz});
 		InteractionVertex.push_back({0,0,0});
 		
 		if(SurvivingProbability < gRandom->TRandom::Uniform(0,1)) continue;
-		cout << SurvivingProbability << "   " << gRandom->TRandom::Uniform(0,1)) << endl;
+		cout << SurvivingProbability << "   " << gRandom->TRandom::Uniform(0,1) << endl;
 		
 		double xx,yy,zz;
 		SphericalToCartesian(xx,yy,zz,rr,theta,phi);
@@ -273,21 +325,31 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		h_Photon_Direction_r->Fill(rr);
 		h_Photon_Direction_theta->Fill(theta);
 		h_Photon_Direction_phi->Fill(phi);
-		
-		Scintillation_Spherical_atPMTs.push_back({TravelledDistance,theta,phi});
-		SphericalToCartesian(xx_at_PMTs,yy_at_PMTs,zz_at_PMTs,TravelledDistance,theta,phi);	
-		Scintillation_Cartesian_atPMTs.push_back({xx_at_PMTs,yy_at_PMTs,zz_at_PMTs});
+		*/
+
+		//cout<<"GOOOD"<<endl;
+
+
+		//Scintillation_Spherical_atPMTs.push_back({TravelledDistance,theta_t,phi_t});
+		SphericalToCartesian(x_t,y_t,z_t,r_t,theta_t,phi_t);	
+		SphericalToCartesian(xAtPMT_t,yAtPMT_t,zAtPMT_t,TravelledDistance_t,theta_t,phi_t);	
+		//Scintillation_Cartesian_atPMTs.push_back({xAtPMT_t,yAtPMT_t,zAtPMT_t});
 		
 		//cout << iPh << "\t" << xx_at_PMTs << "\t" << yy_at_PMTs << "\t" << zz_at_PMTs << endl;
 
 		//int IndexExample = ClosestPMTIndex(Scintillation_Cartesian_atPMTs[iPh][0],Scintillation_Cartesian_atPMTs[iPh][1],Scintillation_Cartesian_atPMTs[iPh][2]);
 
-		int IndexExample = ClosestPMTIndex(Scintillation_Cartesian_atPMTs[iPh][0],Scintillation_Cartesian_atPMTs[iPh][1],Scintillation_Cartesian_atPMTs[iPh][2],PMT_Position_Spherical);
+		Closest_PMT_t = ClosestPMTIndex(xAtPMT_t,yAtPMT_t,zAtPMT_t,PMT_Position_Spherical);
 			
 		//cout << "PHOTON " << iPh << " : CLOSEST INDEX IS = " << IndexExample << endl;
-		WriteOutputText << theta << "  " << phi << "   " << IndexExample << "  " << 0 << endl;
+
+		
+		WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
 	
-		h_ClosestIndex->Fill(IndexExample);
+		h_ClosestIndex->Fill(Closest_PMT_t);
+
+		t -> Fill();
+	
 		
 		//cout << i << "    " << iPh % (Photons/10) << endl;
 		
@@ -299,16 +361,6 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 
 	//Generate Cherenkov Photons
-	double n = 1.55 ; //refraction index
-	double c = 299792458 ; // m/s
-	double m_e = 0.51099895; //MeV    electron mass
-	double Be7_energy = 0.862; //MeV    enegy of a 7Be neutrino
-	double Event_Energy = 0.5; //MeV
-
-	int CherenkovPhotons = ChScRatio*Photons;
-	double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0.5)); //angle between the solar-nu and the electron scattered (assuming 7Be-nu)
-    	double beta = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
-    	double theta_Cher = acos(1/(beta*n)); //Cherenkov angle
 
 	Tuple a;
 	Tuple b;
@@ -317,19 +369,42 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 		b = Generate_Cone(a.x,a.y,theta_Cher,gRandom);
 
-		WriteOutputText << b.x << "  " << b.y << "   " << 1 << "  " << 1 << endl;
+		r_t = 1.;
+		theta_t = b.x;
+		phi_t = b.y;
+		TravelledDistance_t = TravelledDistance;
+		SphericalToCartesian (x_t,y_t,z_t,r_t,theta_t,phi_t) ;
+		SphericalToCartesian(xAtPMT_t,yAtPMT_t,zAtPMT_t,TravelledDistance_t,theta_t,phi_t);	
+
+		Closest_PMT_t = ClosestPMTIndex(xAtPMT_t,yAtPMT_t,zAtPMT_t,PMT_Position_Spherical);
+
+		Type_t = 1;
+		Electron_Energy_t = Event_Energy;
+		Neutrino_Energy_t = Be7_energy;
+
+		Int_Vertex_x_t = 0.;
+		Int_Vertex_y_t = 0.;
+		Int_Vertex_z_t = 0.;
+
+		Start_Time_t = 0.;
+		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
+
+		WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
+
+		t -> Fill();
 	}
 	
 
 	TFile *foutput = new TFile (Output_Rootfile.c_str(), "RECREATE");
 	foutput->cd();
-	h_Photon_Direction_x->Write();
+	/*h_Photon_Direction_x->Write();
 	h_Photon_Direction_y->Write();
 	h_Photon_Direction_z->Write();
 	h_Photon_Direction_r->Write();
 	h_Photon_Direction_theta->Write();
 	h_Photon_Direction_phi->Write();
-	h_ClosestIndex->Write();
+	h_ClosestIndex->Write(); */
+	t->Write();
 	
 	foutput->Close();
 
