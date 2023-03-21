@@ -228,31 +228,31 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	cout << "AbsorptionProbability = " << AbsorptionProbability << endl;
 	cout << "SurvivingProbability = " << SurvivingProbability << endl;
 
-	//Making the tree, it is not working at the moment!!!!!
+	//Making the tree
 	double x_t,y_t,z_t,r_t,phi_t,theta_t,Closest_PMT_t,Start_Time_t,Arr_Time_t,Electron_Energy_t,Neutrino_Energy_t,type_t;
 	double xAtPMT_t,yAtPMT_t,zAtPMT_t,TravelledDistance_t;
 	double Int_Vertex_x_t,Int_Vertex_y_t,Int_Vertex_z_t;
 	bool Type_t;
 
 	TTree *t = new TTree("t","New Tree");
-	t->Branch("x", &x_t, "x/F");
-	t->Branch("y", &y_t, "y/F");
-	t->Branch("z", &z_t, "z/F");
-	t->Branch("xAtPMT", &xAtPMT_t, "xAtPMT/F");
-	t->Branch("yAtPMT", &yAtPMT_t, "yAtPMT/F");
-	t->Branch("zAtPMT", &zAtPMT_t, "zAtPMT/F");
-	t->Branch("r", &r_t, "r/F");
-	t->Branch("TravelledDistance", &TravelledDistance_t, "TravelledDistance/F");
-	t->Branch("theta", &theta_t, "theta/F");
-	t->Branch("phi", &phi_t, "phi/F");
-	t->Branch("Closest_PMT", &Closest_PMT_t, "Closest_PMT/F");
-	t->Branch("Start_Time", &Start_Time_t, "Start_Time/F");
-	t->Branch("Arr_Time", &Arr_Time_t, "Arr_Time/F");
-	t->Branch("Electron_Energy", &Electron_Energy_t, "Electron_Energy/F");
-	t->Branch("Int_Vertex_x", &Int_Vertex_x_t, "Int_Vertex_x/F");
-	t->Branch("Int_Vertex_y", &Int_Vertex_y_t, "Int_Vertex_y/F");
-	t->Branch("Int_Vertex_z", &Int_Vertex_z_t, "Int_Vertex_z/F");
-	t->Branch("Neutrino_Energy", &Neutrino_Energy_t, "Neutrino_Energy/F");
+	t->Branch("x", &x_t, "x/D");
+	t->Branch("y", &y_t, "y/D");
+	t->Branch("z", &z_t, "z/D");
+	t->Branch("xAtPMT", &xAtPMT_t, "xAtPMT/D");
+	t->Branch("yAtPMT", &yAtPMT_t, "yAtPMT/D");
+	t->Branch("zAtPMT", &zAtPMT_t, "zAtPMT/D");
+	t->Branch("r", &r_t, "r/D");
+	t->Branch("TravelledDistance", &TravelledDistance_t, "TravelledDistance/D");
+	t->Branch("theta", &theta_t, "theta/D");
+	t->Branch("phi", &phi_t, "phi/D");
+	t->Branch("Closest_PMT", &Closest_PMT_t, "Closest_PMT/D");
+	t->Branch("Start_Time", &Start_Time_t, "Start_Time/D");
+	t->Branch("Arr_Time", &Arr_Time_t, "Arr_Time/D");
+	t->Branch("Electron_Energy", &Electron_Energy_t, "Electron_Energy/D");
+	t->Branch("Int_Vertex_x", &Int_Vertex_x_t, "Int_Vertex_x/D");
+	t->Branch("Int_Vertex_y", &Int_Vertex_y_t, "Int_Vertex_y/D");
+	t->Branch("Int_Vertex_z", &Int_Vertex_z_t, "Int_Vertex_z/D");
+	t->Branch("Neutrino_Energy", &Neutrino_Energy_t, "Neutrino_Energy/D");
 	t->Branch("Type", &Type_t, "Type/O");
 
 	// LOAD PMTs position
@@ -330,16 +330,16 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		//cout<<"GOOOD"<<endl;
 
 
-		Scintillation_Spherical_atPMTs.push_back({TravelledDistance,theta_t,phi_t});
+		//Scintillation_Spherical_atPMTs.push_back({TravelledDistance,theta_t,phi_t});
 		SphericalToCartesian(x_t,y_t,z_t,r_t,theta_t,phi_t);	
 		SphericalToCartesian(xAtPMT_t,yAtPMT_t,zAtPMT_t,TravelledDistance_t,theta_t,phi_t);	
-		Scintillation_Cartesian_atPMTs.push_back({xAtPMT_t,yAtPMT_t,zAtPMT_t});
+		//Scintillation_Cartesian_atPMTs.push_back({xAtPMT_t,yAtPMT_t,zAtPMT_t});
 		
 		//cout << iPh << "\t" << xx_at_PMTs << "\t" << yy_at_PMTs << "\t" << zz_at_PMTs << endl;
 
 		//int IndexExample = ClosestPMTIndex(Scintillation_Cartesian_atPMTs[iPh][0],Scintillation_Cartesian_atPMTs[iPh][1],Scintillation_Cartesian_atPMTs[iPh][2]);
 
-		Closest_PMT_t = ClosestPMTIndex(Scintillation_Cartesian_atPMTs[iPh][0],Scintillation_Cartesian_atPMTs[iPh][1],Scintillation_Cartesian_atPMTs[iPh][2],PMT_Position_Spherical);
+		Closest_PMT_t = ClosestPMTIndex(xAtPMT_t,yAtPMT_t,zAtPMT_t,PMT_Position_Spherical);
 			
 		//cout << "PHOTON " << iPh << " : CLOSEST INDEX IS = " << IndexExample << endl;
 
