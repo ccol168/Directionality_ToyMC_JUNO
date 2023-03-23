@@ -47,6 +47,35 @@ int PMTNumber = 17611;
 double PMTRadius = 0.25;
 double JUNORadius = 19.0;
 
+//Useful values
+
+double n = 1.55 ; //refraction index
+double c = 299792458 ; // m/s
+double m_e = 0.51099895; //MeV    electron mass
+double Be7_energy = 0.862; //MeV    enegy of a 7Be neutrino
+double Event_Energy = 0.5; //MeV
+
+double RefractionIndex = 1.5;
+double TravelledDistance = 19.0;
+double AbsorptionLength = 80.;
+double QE = 0.3;
+double AbsorptionProbability = (1-TMath::Exp(-TravelledDistance/AbsorptionLength));
+double ReemissionProbability = 0.75;
+	
+double SurvivingProbability = (1-AbsorptionProbability*(1-ReemissionProbability))*QE;
+
+double x_t,y_t,z_t,r_t,phi_t,theta_t,Closest_PMT_t,Start_Time_t,Arr_Time_t,Electron_Energy_t,Neutrino_Energy_t,type_t;
+double xAtPMT_t,yAtPMT_t,zAtPMT_t,TravelledDistance_t;
+double Int_Vertex_x_t,Int_Vertex_y_t,Int_Vertex_z_t;
+bool Type_t;
+
+double Min_Distance_t;
+bool Hit_t;
+
+double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0.5)); //angle between the solar-nu and the electron scattered (assuming 7Be-nu)
+double beta_el = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
+double theta_Cher = acos(1/(beta_el*n)); //Cherenkov angle
+
 using namespace std;
 
 struct Tuple {
@@ -127,20 +156,19 @@ double ClosestPMTIndex(double x_Event,double y_Event,double z_Event, vector<vect
 		if(Distance_Temp<MinDistance){
 			Closest = PMT;
 			MinDistance = Distance_Temp;
-			}
+			} 
+		if (MinDistance*JUNORadius < PMTRadius) {
+			
+			Min_Distance_t = JUNORadius * MinDistance;
+			return Closest;
+		}
 		
 		//cout << theta_PMT << "  "  << phi_PMT << "    "  << Index << "   " << Distance_Temp << "  /   " << Closest << "   " << MinDistance << endl;	// DO NOT REMOVE
 			
 	}
-
-	if (MinDistance*JUNORadius <= PMTRadius) {
-		return Closest;
-	} else {
-		return 0;
-	}
+	Min_Distance_t = JUNORadius * MinDistance;
+	return 0;
 		
-	
-
 }
 
 Tuple Generate_Cone (double theta_0, double phi_0, double angle, TRandom* gRandom) {
@@ -190,115 +218,9 @@ Tuple Generate_Cone (double theta_0, double phi_0, double angle, TRandom* gRando
 	return out;
 }
 
+//Generator for all the photons
 
-double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, string Output_Text){
-
-	ifstream ReadCfgFile;
-	ReadCfgFile.open(Configuration_Text.c_str());
-
-	int LY = 0;
-	double ChScRatio;
-	cout << "#############" << endl;
-	cout << "Cfg file: " << Configuration_Text.c_str() << endl;
-	
-	ReadCfgFile >> LY;
-	ReadCfgFile >> ChScRatio;
-	cout <<"Scintillation photons generated = " <<LY << endl;
-	
-	gRandom = new TRandom3(0);
-    gRandom->SetSeed(0);
-
-	int Photons = LY;
-	
-	std::vector<vector<double>> Scintillation_Cartesian;
-	std::vector<vector<double>> InteractionVertex;
-	std::vector<vector<double>> Scintillation_Cartesian_atPMTs;
-	std::vector<vector<double>> Scintillation_Spherical_atPMTs;
-	std::vector<vector<double>> PMT_Position_Spherical;		
-		
-	TH1F *h_Photon_Direction_x = new TH1F("h_Photon_Direction_x","h_Photon_Direction_x",500,-1,1);
-	TH1F *h_Photon_Direction_y = new TH1F("h_Photon_Direction_y","h_Photon_Direction_y",500,-1,1);
-	TH1F *h_Photon_Direction_z = new TH1F("h_Photon_Direction_z","h_Photon_Direction_z",500,-1,1);
-	TH1F *h_Photon_Direction_r = new TH1F("h_Photon_Direction_r","h_Photon_Direction_r",500,0,22000);
-	TH1F *h_Photon_Direction_theta = new TH1F("h_Photon_Direction_theta","h_Photon_Direction_theta",500,0,2*PI);	
-	TH1F *h_Photon_Direction_phi = new TH1F("h_Photon_Direction_phi","h_Photon_Direction_phi",500,0,PI);			
-	TH1F *h_ClosestIndex = new TH1F("h_ClosestIndex","h_ClosestIndex",1000,0,20000);	
-	
-	double RefractionIndex = 1.5;
-	double TravelledDistance = 19.0;
-	double AbsorptionLength = 80.;
-	double QE = 0.3;
-	double AbsorptionProbability = (1-TMath::Exp(-TravelledDistance/AbsorptionLength));
-	double ReemissionProbability = 0.75;
-	
-	double SurvivingProbability = (1-AbsorptionProbability*(1-ReemissionProbability))*QE;
-	
-	cout << "AbsorptionProbability = " << AbsorptionProbability << endl;
-	cout << "SurvivingProbability = " << SurvivingProbability << endl;
-
-	//Making the tree
-	double x_t,y_t,z_t,r_t,phi_t,theta_t,Closest_PMT_t,Start_Time_t,Arr_Time_t,Electron_Energy_t,Neutrino_Energy_t,type_t;
-	double xAtPMT_t,yAtPMT_t,zAtPMT_t,TravelledDistance_t;
-	double Int_Vertex_x_t,Int_Vertex_y_t,Int_Vertex_z_t;
-	bool Type_t;
-
-	TTree *t = new TTree("t","New Tree");
-	t->Branch("x", &x_t, "x/D");
-	t->Branch("y", &y_t, "y/D");
-	t->Branch("z", &z_t, "z/D");
-	t->Branch("xAtPMT", &xAtPMT_t, "xAtPMT/D");
-	t->Branch("yAtPMT", &yAtPMT_t, "yAtPMT/D");
-	t->Branch("zAtPMT", &zAtPMT_t, "zAtPMT/D");
-	t->Branch("r", &r_t, "r/D");
-	t->Branch("TravelledDistance", &TravelledDistance_t, "TravelledDistance/D");
-	t->Branch("theta", &theta_t, "theta/D");
-	t->Branch("phi", &phi_t, "phi/D");
-	t->Branch("Closest_PMT", &Closest_PMT_t, "Closest_PMT/D");
-	t->Branch("Start_Time", &Start_Time_t, "Start_Time/D");
-	t->Branch("Arr_Time", &Arr_Time_t, "Arr_Time/D");
-	t->Branch("Electron_Energy", &Electron_Energy_t, "Electron_Energy/D");
-	t->Branch("Int_Vertex_x", &Int_Vertex_x_t, "Int_Vertex_x/D");
-	t->Branch("Int_Vertex_y", &Int_Vertex_y_t, "Int_Vertex_y/D");
-	t->Branch("Int_Vertex_z", &Int_Vertex_z_t, "Int_Vertex_z/D");
-	t->Branch("Neutrino_Energy", &Neutrino_Energy_t, "Neutrino_Energy/D");
-	t->Branch("Type", &Type_t, "Type/O");
-
-	// LOAD PMTs position
-	ifstream ReadPMTPosition;
-	ReadPMTPosition.open("PMTPos_CD_LPMT.csv");
-	double blank;
-	int Index;
-	double x_PMT,y_PMT,z_PMT, r_PMT, theta_PMT, phi_PMT;
-		
-	for(int PMT=0;PMT<PMTNumber;PMT++){		
-		ReadPMTPosition >> Index;
-		ReadPMTPosition >> x_PMT;
-		ReadPMTPosition >> y_PMT;
-		ReadPMTPosition >> z_PMT;
-		ReadPMTPosition >> blank >> blank;
-		CartesianToSpherical(r_PMT, theta_PMT, phi_PMT,x_PMT,y_PMT,z_PMT);
-		PMT_Position_Spherical.push_back({r_PMT,theta_PMT,phi_PMT});
-		//cout << "x " << x_PMT << "  y  " <<   y_PMT << "  z  " << z_PMT <<  endl;			
-	}	
-
-	ofstream WriteOutputText;
-	WriteOutputText.open(Output_Text.c_str(),ios::app);	
-
-	//Parameters for Cherenkov emission
-	double n = 1.55 ; //refraction index
-	double c = 299792458 ; // m/s
-	double m_e = 0.51099895; //MeV    electron mass
-	double Be7_energy = 0.862; //MeV    enegy of a 7Be neutrino
-	double Event_Energy = 0.5; //MeV
-
-	int CherenkovPhotons = ChScRatio*Photons;
-	double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0.5)); //angle between the solar-nu and the electron scattered (assuming 7Be-nu)
-    double beta = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
-    double theta_Cher = acos(1/(beta*n)); //Cherenkov angle
-
-	cout<<"Neutrino-electron angle = "<<theta_e*180./M_PI<<" deg"<<endl;
-	cout<<"Cherenkov angle = "<<theta_Cher*180./M_PI<<" deg"<<endl;
-
+int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhotons, TTree* t, vector<vector<double>> PMT_Position_Spherical ) {
 	int SeenPhotons = 0;
 
 	for(int iPh=0; iPh<Photons; iPh++){
@@ -319,28 +241,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		Start_Time_t = gRandom -> TRandom::Exp(4*pow(10,-8));
 		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
 
-		/*
-		//Scintillation_Cartesian.push_back({xx,yy,zz});
-		InteractionVertex.push_back({0,0,0});
-		
-		if(SurvivingProbability < gRandom->TRandom::Uniform(0,1)) continue;
-		cout << SurvivingProbability << "   " << gRandom->TRandom::Uniform(0,1) << endl;
-		
-		double xx,yy,zz;
-		SphericalToCartesian(xx,yy,zz,rr,theta,phi);
-		
-		h_Photon_Direction_x->Fill(xx);
-		h_Photon_Direction_y->Fill(yy);
-		h_Photon_Direction_z->Fill(zz);
-		h_Photon_Direction_r->Fill(rr);
-		h_Photon_Direction_theta->Fill(theta);
-		h_Photon_Direction_phi->Fill(phi);
-		*/
-
-		//Scintillation_Spherical_atPMTs.push_back({TravelledDistance,theta_t,phi_t});
 		SphericalToCartesian(x_t,y_t,z_t,r_t,theta_t,phi_t);	
 		SphericalToCartesian(xAtPMT_t,yAtPMT_t,zAtPMT_t,TravelledDistance_t,theta_t,phi_t);	
-		//Scintillation_Cartesian_atPMTs.push_back({xAtPMT_t,yAtPMT_t,zAtPMT_t});
 		
 		//cout << iPh << "\t" << xx_at_PMTs << "\t" << yy_at_PMTs << "\t" << zz_at_PMTs << endl;
 
@@ -355,31 +257,28 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 			WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
 	
-			h_ClosestIndex->Fill(Closest_PMT_t);
+			//h_ClosestIndex->Fill(Closest_PMT_t);
 
-			t -> Fill();
+			Hit_t = 1;
 
 			SeenPhotons++;
-		} else {
-			continue;
-		}
+		} else {Hit_t = 0;}
+
+		t -> Fill();
 		
 		//cout << i << "    " << iPh % (Photons/10) << endl;
-		
-		if (iPh % (Photons/10) == 0 && iPh != 0) { // check if the index is a multiple of tenth
-		std::cout << iPh << "-th photon ; " << (iPh / (Photons/10)) * 10 << "% of elements looped.\n";
-    		}
 						
 	}
-
 
 	//Generate Cherenkov Photons
 
 	Tuple a;
 	Tuple b;
-	for (int iPh=0; iPh<CherenkovPhotons; iPh++) {
-		a = Generate_Cone(0.,0.,theta_e,gRandom);
 
+	a = Generate_Cone(0.,0.,theta_e,gRandom);
+
+	for (int iPh=0; iPh<CherenkovPhotons; iPh++) {
+		
 		b = Generate_Cone(a.x,a.y,theta_Cher,gRandom);
 
 		r_t = 1.;
@@ -407,16 +306,110 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 			WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
 	
-			h_ClosestIndex->Fill(Closest_PMT_t);
+			//h_ClosestIndex->Fill(Closest_PMT_t);
 
-			t -> Fill();
+			Hit_t = 1;
 
 			SeenPhotons++;
+
 		} else {
-			continue;
+
+			Hit_t = 0;
 		}
+
+		t -> Fill();
 	}
+
+	return SeenPhotons;
+}
+
+double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, string Output_Text) {
+
+	ifstream ReadCfgFile;
+	ReadCfgFile.open(Configuration_Text.c_str());
+
+	int LY = 0;
+	double ChScRatio;
+	int NEvents;
+	cout << "#############" << endl;
+	cout << "Cfg file: " << Configuration_Text.c_str() << endl;
 	
+	ReadCfgFile >> LY;
+	ReadCfgFile >> ChScRatio;
+	ReadCfgFile >> NEvents;
+
+	int Photons = LY*Event_Energy*SurvivingProbability;
+
+	int CherenkovPhotons = ChScRatio*Photons;
+
+	
+	gRandom = new TRandom3(0);
+    gRandom->SetSeed(0);
+	
+	std::vector<vector<double>> PMT_Position_Spherical;		
+		
+	/*TH1F *h_Photon_Direction_x = new TH1F("h_Photon_Direction_x","h_Photon_Direction_x",500,-1,1);
+	TH1F *h_Photon_Direction_y = new TH1F("h_Photon_Direction_y","h_Photon_Direction_y",500,-1,1);
+	TH1F *h_Photon_Direction_z = new TH1F("h_Photon_Direction_z","h_Photon_Direction_z",500,-1,1);
+	TH1F *h_Photon_Direction_r = new TH1F("h_Photon_Direction_r","h_Photon_Direction_r",500,0,22000);
+	TH1F *h_Photon_Direction_theta = new TH1F("h_Photon_Direction_theta","h_Photon_Direction_theta",500,0,2*PI);	
+	TH1F *h_Photon_Direction_phi = new TH1F("h_Photon_Direction_phi","h_Photon_Direction_phi",500,0,PI);			
+	TH1F *h_ClosestIndex = new TH1F("h_ClosestIndex","h_ClosestIndex",1000,0,20000);*/
+	
+	std::cout << "AbsorptionProbability = " << AbsorptionProbability << endl;
+	cout << "SurvivingProbability = " << SurvivingProbability << endl;
+	cout<<"Neutrino-electron angle = "<<theta_e*180./M_PI<<" deg"<<endl;
+	cout<<"Cherenkov angle = "<<theta_Cher*180./M_PI<<" deg"<<endl;
+
+
+	cout <<"Scintillation photons generated per event = " << Photons << endl;
+	cout <<"Number of events generated = " << NEvents << endl << endl;
+
+	//Making the tree
+	TTree *t = new TTree("t","New Tree");
+	t->Branch("x", &x_t, "x/D");
+	t->Branch("y", &y_t, "y/D");
+	t->Branch("z", &z_t, "z/D");
+	t->Branch("xAtPMT", &xAtPMT_t, "xAtPMT/D");
+	t->Branch("yAtPMT", &yAtPMT_t, "yAtPMT/D");
+	t->Branch("zAtPMT", &zAtPMT_t, "zAtPMT/D");
+	t->Branch("r", &r_t, "r/D");
+	t->Branch("TravelledDistance", &TravelledDistance_t, "TravelledDistance/D");
+	t->Branch("theta", &theta_t, "theta/D");
+	t->Branch("phi", &phi_t, "phi/D");
+	t->Branch("Closest_PMT", &Closest_PMT_t, "Closest_PMT/D");
+	t->Branch("Start_Time", &Start_Time_t, "Start_Time/D");
+	t->Branch("Arr_Time", &Arr_Time_t, "Arr_Time/D");
+	t->Branch("Electron_Energy", &Electron_Energy_t, "Electron_Energy/D");
+	t->Branch("Int_Vertex_x", &Int_Vertex_x_t, "Int_Vertex_x/D");
+	t->Branch("Int_Vertex_y", &Int_Vertex_y_t, "Int_Vertex_y/D");
+	t->Branch("Int_Vertex_z", &Int_Vertex_z_t, "Int_Vertex_z/D");
+	t->Branch("Neutrino_Energy", &Neutrino_Energy_t, "Neutrino_Energy/D");
+	t->Branch("Type", &Type_t, "Type/O");
+
+	t->Branch("Min_Distance", &Min_Distance_t, "Min_Distance/D");
+	t->Branch("Hit", &Hit_t, "Hit/O");
+
+	// LOAD PMTs position
+	ifstream ReadPMTPosition;
+	ReadPMTPosition.open("PMTPos_CD_LPMT.csv");
+	double blank;
+	int Index;
+	double x_PMT,y_PMT,z_PMT, r_PMT, theta_PMT, phi_PMT;
+		
+	for(int PMT=0;PMT<PMTNumber;PMT++){		
+		ReadPMTPosition >> Index;
+		ReadPMTPosition >> x_PMT;
+		ReadPMTPosition >> y_PMT;
+		ReadPMTPosition >> z_PMT;
+		ReadPMTPosition >> blank >> blank;
+		CartesianToSpherical(r_PMT, theta_PMT, phi_PMT,x_PMT,y_PMT,z_PMT);
+		PMT_Position_Spherical.push_back({r_PMT,theta_PMT,phi_PMT});
+		//cout << "x " << x_PMT << "  y  " <<   y_PMT << "  z  " << z_PMT <<  endl;			
+	}	
+
+	ofstream WriteOutputText;
+	WriteOutputText.open(Output_Text.c_str(),ios::app);	
 
 	TFile *foutput = new TFile (Output_Rootfile.c_str(), "RECREATE");
 	foutput->cd();
@@ -427,6 +420,15 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	h_Photon_Direction_theta->Write();
 	h_Photon_Direction_phi->Write();
 	h_ClosestIndex->Write(); */
+	int SeenPhotons = 0;
+
+	for (int i=0; i<NEvents; i++) {
+		SeenPhotons += GeneratePhotons(WriteOutputText,Photons,CherenkovPhotons, t, PMT_Position_Spherical);
+		if (i % (NEvents/10) == 0 && i != 0) { // check if the index is a multiple of tenth
+		std::cout << i << "-th Event ; " << (i / (NEvents/10)) * 10 << "% of events simulated \n";
+    		}
+	}
+
 	t->Write();
 	
 	foutput->Close();
@@ -434,7 +436,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
    // APPENDING text output to Output_Text text file
 	WriteOutputText.close();
 
-	cout << "Geometric coverage = " << double(SeenPhotons)/double(CherenkovPhotons+Photons) <<endl;
+	cout << "Geometric coverage = " << double(SeenPhotons)/double((CherenkovPhotons+Photons)*NEvents) <<endl;
 	cout << "#############" << endl;
 	
 	return 0;
@@ -453,6 +455,7 @@ int main(int argc, char** argv) {
         string Output_Rootfile = argv[2];
 	    string Output_Text = argv[3];
 
-        Directionality_ToyMC(Configuration_Text, Output_Rootfile, Output_Text);
+		Directionality_ToyMC(Configuration_Text, Output_Rootfile, Output_Text);
+        
         return 0;
 }
