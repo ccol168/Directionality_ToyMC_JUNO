@@ -157,7 +157,7 @@ double ClosestPMTIndex(double x_Event,double y_Event,double z_Event, vector<vect
 			Closest = PMT;
 			MinDistance = Distance_Temp;
 			} 
-		if (MinDistance*JUNORadius < PMTRadius) {
+		if (MinDistance*JUNORadius <= PMTRadius) {
 			
 			Min_Distance_t = JUNORadius * MinDistance;
 			return Closest;
@@ -424,9 +424,12 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 	for (int i=0; i<NEvents; i++) {
 		SeenPhotons += GeneratePhotons(WriteOutputText,Photons,CherenkovPhotons, t, PMT_Position_Spherical);
-		if (i % (NEvents/10) == 0 && i != 0) { // check if the index is a multiple of tenth
-		std::cout << i << "-th Event ; " << (i / (NEvents/10)) * 10 << "% of events simulated \n";
+		if (NEvents > 10) {  //to avoid floating point exceptions for NEvents < 10
+			if (i % (NEvents/10) == 0 && i != 0 && NEvents > 10) { // check if the index is a multiple of tenth
+			std::cout << i << "-th Event ; " << (i / (NEvents/10)) * 10 << "% of events simulated \n";
     		}
+		}
+		
 	}
 
 	t->Write();
