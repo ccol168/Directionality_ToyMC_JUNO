@@ -242,7 +242,7 @@ int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhoton
 
 	double x_Int,y_Int,z_Int,r_Int,theta_Int,phi_Int;
 	double theta_vers,phi_vers,trash;
-	double SeenPhotons = 0;
+	int SeenPhotons = 0;
 
 	if (RandomPos == true ) {
 		r_Int = gRandom -> TRandom::Uniform(JUNORadius);
