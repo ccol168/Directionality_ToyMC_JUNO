@@ -76,8 +76,6 @@ double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0
 double beta_el = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
 double theta_Cher = acos(1/(beta_el*n)); //Cherenkov angle
 
-int SeenPhotons = 0;
-
 using namespace std;
 
 struct Tuple {
@@ -244,6 +242,7 @@ int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhoton
 
 	double x_Int,y_Int,z_Int,r_Int,theta_Int,phi_Int;
 	double theta_vers,phi_vers,trash;
+	double SeenPhotons = 0;
 
 	if (RandomPos == true ) {
 		r_Int = gRandom -> TRandom::Uniform(JUNORadius);
