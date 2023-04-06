@@ -46,6 +46,7 @@
 int PMTNumber = 17611;
 double PMTRadius = 0.25;
 double JUNORadius = 19.0;
+double FV;
 
 //Useful values
 
@@ -245,9 +246,9 @@ int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhoton
 	int SeenPhotons = 0;
 
 	if (RandomPos == true ) {
-		r_Int = gRandom -> TRandom::Uniform(JUNORadius);
+		r_Int = gRandom -> TRandom::Uniform(FV);
 		theta_Int = gRandom -> TRandom::Uniform(2*PI);
-		phi_Int = gRandom -> TRandom::Uniform(PI);
+		phi_Int = TMath::ACos(-1.+2.*gRandom->TRandom::Uniform(0,1));
 
 		SphericalToCartesian(x_Int,y_Int,z_Int,r_Int,theta_Int,phi_Int);
 	} else {
@@ -376,26 +377,45 @@ int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhoton
 
 double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, string Output_Text) {
 
-	ifstream ReadCfgFile;
-	ReadCfgFile.open(Configuration_Text.c_str());
+	ifstream file(Configuration_Text);
+	vector<string> col1;
+	vector<string> col2;
+	string line;
 
-	int LY = 0;
+	// ### Parsing
+	cout << "######### Configuration #########" << endl;
+	cout << "Cfg file: " << Configuration_Text.c_str() << endl;
+	while (getline(file, line)) {
+		string s1, s2;
+		istringstream iss(line);
+		if (!(iss >> s1 >> s2)) { break; } // error
+			col1.push_back(s1);
+			col2.push_back(s2);
+			cout << setw(10) << s1 <<  "\t\t" << s2 << endl;
+	}
+	
+	cout << "################################" << endl;
+	
+	int LY;
 	double ChScRatio;
 	int NEvents;
-	cout << "#############" << endl;
-	cout << "Cfg file: " << Configuration_Text.c_str() << endl;
+
+	// quite rough; to be changed
+	istringstream iss(col2[0]);
+	iss >> LY;
+	istringstream iss1(col2[1]);
+	iss1 >> ChScRatio;
+	istringstream iss2(col2[2]);	
+	iss2 >> NEvents;
+	istringstream iss3(col2[3]);	
+	iss3 >> FV;	
+	// ### End parsing	
 	
-	ReadCfgFile >> LY;
-	ReadCfgFile >> ChScRatio;
-	ReadCfgFile >> NEvents;
-
 	int Photons = LY*Event_Energy*SurvivingProbability;
-
 	int CherenkovPhotons = ChScRatio*Photons;
-
 	
 	gRandom = new TRandom3(0);
-    gRandom->SetSeed(0);
+	gRandom->SetSeed(0);
 	
 	std::vector<vector<double>> PMT_Position_Spherical;		
 		
