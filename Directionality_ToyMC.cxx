@@ -159,8 +159,9 @@ double ClosestPMTIndex(double x_Event,double y_Event,double z_Event, vector<vect
 			MinDistance = Distance_Temp;
 			} 
 		if (MinDistance*JUNORadius <= PMTRadius) {
-			
+
 			Min_Distance_t = JUNORadius * MinDistance;
+
 			return Closest;
 		}
 		
@@ -168,8 +169,28 @@ double ClosestPMTIndex(double x_Event,double y_Event,double z_Event, vector<vect
 			
 	}
 	Min_Distance_t = JUNORadius * MinDistance;
-	return 0;
+	return -1;
 		
+}
+
+double ClosestPMTIndex_fast (double x_Event,double y_Event,double z_Event, vector<vector<double>> & PMT_Position_Spherical) {
+
+	vector<vector<double>> PMT_Position_Ordered;
+	double MinDistance=50000;
+	double Distance_Temp;
+	int Index=50000;
+	int Closest=Index;
+	double r_Event, theta_Event, phi_Event;
+	double x_PMT,y_PMT,z_PMT, r_PMT, theta_PMT, phi_PMT;
+
+
+
+
+	return 0;
+
+
+
+
 }
 
 //outputs the position (x,y,z) on the sphere for a photon generated in (j,k,l) parallel to the vector (a,b,c)
@@ -297,15 +318,13 @@ int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhoton
 		//cout << "PHOTON " << iPh << " : CLOSEST INDEX IS = " << IndexExample << endl;
 
 		//Generate the photon only if it hits the PMT
-		if (Closest_PMT_t != 0) {
+		if (Closest_PMT_t != -1) {
 
 			WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
-	
 			//h_ClosestIndex->Fill(Closest_PMT_t);
-
 			Hit_t = 1;
-
 			SeenPhotons++;
+
 		} else {Hit_t = 0;}
 
 		t -> Fill();
@@ -353,7 +372,7 @@ int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhoton
 		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
 
 		//Generate the photon only if it hits the PMT
-		if (Closest_PMT_t != 0) {
+		if (Closest_PMT_t != -1) {
 
 			WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
 	
