@@ -77,6 +77,8 @@ double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0
 double beta_el = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
 double theta_Cher = acos(1/(beta_el*n)); //Cherenkov angle
 
+double MaxPMTDistance; //maximum distance in phi between two PMTs
+
 using namespace std;
 
 struct Tuple {
@@ -134,7 +136,7 @@ double DistanceOnASphere(double r, double theta1, double phi1, double theta2, do
 	return TMath::ACos(TMath::Cos(phi1)*TMath::Cos(phi2) + (TMath::Sin(phi1)*TMath::Sin(phi2))*TMath::Cos(theta1-theta2));
 	}
 
-double ClosestPMTIndex(double x_Event,double y_Event,double z_Event, vector<vector<double>> & PMT_Position_Spherical){
+double ClosestPMTIndex (double x_Event,double y_Event,double z_Event, vector<vector<double>> & PMT_Position_Spherical) {
 
 	double MinDistance=50000;
 	double Distance_Temp;
@@ -142,7 +144,7 @@ double ClosestPMTIndex(double x_Event,double y_Event,double z_Event, vector<vect
 	int Closest=Index;
 	double r_Event, theta_Event, phi_Event;
 	double x_PMT,y_PMT,z_PMT, r_PMT, theta_PMT, phi_PMT;
-	
+
 	CartesianToSpherical(r_Event, theta_Event, phi_Event,x_Event, y_Event, z_Event);
 		
 	for(int PMT=0;PMT<PMTNumber;PMT++){
@@ -163,34 +165,17 @@ double ClosestPMTIndex(double x_Event,double y_Event,double z_Event, vector<vect
 			Min_Distance_t = JUNORadius * MinDistance;
 
 			return Closest;
+			}
+
+		//Code to speed up the process, should work but a check is due
+		if (Distance_Temp > MaxPMTDistance*JUNORadius + 0.25) {
+			PMT += 9;
 		}
-		
 		//cout << theta_PMT << "  "  << phi_PMT << "    "  << Index << "   " << Distance_Temp << "  /   " << Closest << "   " << MinDistance << endl;	// DO NOT REMOVE
-			
 	}
+
 	Min_Distance_t = JUNORadius * MinDistance;
 	return -1;
-		
-}
-
-double ClosestPMTIndex_fast (double x_Event,double y_Event,double z_Event, vector<vector<double>> & PMT_Position_Spherical) {
-
-	vector<vector<double>> PMT_Position_Ordered;
-	double MinDistance=50000;
-	double Distance_Temp;
-	int Index=50000;
-	int Closest=Index;
-	double r_Event, theta_Event, phi_Event;
-	double x_PMT,y_PMT,z_PMT, r_PMT, theta_PMT, phi_PMT;
-
-
-
-
-	return 0;
-
-
-
-
 }
 
 //outputs the position (x,y,z) on the sphere for a photon generated in (j,k,l) parallel to the vector (a,b,c)
@@ -485,7 +470,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	double blank;
 	int Index;
 	double x_PMT,y_PMT,z_PMT, r_PMT, theta_PMT, phi_PMT;
-		
+
 	for(int PMT=0;PMT<PMTNumber;PMT++){		
 		ReadPMTPosition >> Index;
 		ReadPMTPosition >> x_PMT;
@@ -493,9 +478,34 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		ReadPMTPosition >> z_PMT;
 		ReadPMTPosition >> blank >> blank;
 		CartesianToSpherical(r_PMT, theta_PMT, phi_PMT,x_PMT,y_PMT,z_PMT);
-		PMT_Position_Spherical.push_back({r_PMT,theta_PMT,phi_PMT});
-		//cout << "x " << x_PMT << "  y  " <<   y_PMT << "  z  " << z_PMT <<  endl;			
+		PMT_Position_Spherical.push_back({r_PMT,theta_PMT,phi_PMT});			
 	}	
+
+	// #################### PMT_Position_Sperical is already sorted in phi ####################################
+	//sorting PMT_Position_Spherical in phi
+	//std::sort(PMT_Position_Spherical.begin(),PMT_Position_Spherical.end(),[] (const std::vector<int>& a, const std::vector<int>& b) {return a[2] < b[2];});
+
+	/*ofstream WriteTry;
+	WriteTry.open("Prova.txt");
+	cout << "##########################" << endl;
+	cout << "Sorted PMT_Position_Spherical" << endl;
+	for(int PMT=0;PMT<PMTNumber;PMT++){	
+		WriteTry<<PMT_Position_Spherical[PMT][2]<<endl;
+	}
+	cout << "##########################" << endl;*/
+	
+
+	//Find MaxPMTDistance
+	MaxPMTDistance = 0;
+	double ProvPMTDistance;
+
+	for(int PMT=0;PMT<PMTNumber-1;PMT++){		
+		ProvPMTDistance = PMT_Position_Spherical[PMT+1][2] - PMT_Position_Spherical[PMT][2];
+		if (ProvPMTDistance > MaxPMTDistance) {
+			MaxPMTDistance = ProvPMTDistance;
+		}	
+	}	
+	//cout << "MaxPMTDistance = " << MaxPMTDistance<<endl;
 
 	ofstream WriteOutputText;
 	WriteOutputText.open(Output_Text.c_str(),ios::app);	
@@ -512,7 +522,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	int SeenPhotons = 0;
 
 	for (int i=0; i<NEvents; i++) {
-		SeenPhotons += GeneratePhotons(WriteOutputText,Photons,CherenkovPhotons, t, PMT_Position_Spherical, true);
+		SeenPhotons += GeneratePhotons(WriteOutputText,Photons,CherenkovPhotons, t, PMT_Position_Spherical, false);
 		if (NEvents > 10) {  //to avoid floating point exceptions for NEvents < 10
 			if (i % (NEvents/10) == 0 && i != 0 && NEvents > 10) { // check if the index is a multiple of tenth
 			std::cout << i << "-th Event ; " << (i / (NEvents/10)) * 10 << "% of events simulated \n";
