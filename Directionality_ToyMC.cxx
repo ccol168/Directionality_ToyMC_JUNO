@@ -47,14 +47,22 @@ int PMTNumber = 17611;
 double PMTRadius = 0.25;
 double JUNORadius = 19.0;
 double FV;
+int LY;
+double ChScRatio;
+int NEvents;
+int TotalPhotons = 0;
 
 //Useful values
 
 double n = 1.55 ; //refraction index
 double c = 299792458 ; // m/s
 double m_e = 0.51099895; //MeV    electron mass
-double Be7_energy = 0.862; //MeV    enegy of a 7Be neutrino
-double Event_Energy = 0.5; //MeV
+double Be7_energy = 0.862; //MeV    energy of a 7Be neutrino
+//double Event_Energy = 0.5; //MeV
+double G_F = 1.1663787*pow(10,-11); //MeV^-2  Fermi constant
+double sin2_thetaW = 0.22290; //Weinberg angle
+
+double max_eEnergy = 2*pow(Be7_energy,2)/(m_e+2*Be7_energy); //MeV  maximum electron energy from a Be7-neutrino scattering
 
 double RefractionIndex = 1.5;
 double TravelledDistance = 19.0;
@@ -68,14 +76,10 @@ double SurvivingProbability = (1-AbsorptionProbability*(1-ReemissionProbability)
 double El_Direction_x_t,El_Direction_y_t,El_Direction_z_t,phi_t,theta_t,Closest_PMT_t,Start_Time_t,Arr_Time_t,Electron_Energy_t,Neutrino_Energy_t,type_t;
 double Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t, Ph_r_AtPMT_t, Ph_theta_AtPMT_t, Ph_phi_AtPMT_t, TravelledDistance_t;
 double Int_Vertex_x_t,Int_Vertex_y_t,Int_Vertex_z_t;
-bool Type_t;
+bool Type_t, IsFirst_t;
 
 double Min_Distance_t;
 bool Hit_t;
-
-double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0.5)); //angle between the solar-nu and the electron scattered (assuming 7Be-nu)
-double beta_el = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
-double theta_Cher = acos(1/(beta_el*n)); //Cherenkov angle
 
 double MaxPMTDistance; //maximum distance in phi between two PMTs
 
@@ -130,11 +134,34 @@ void SphericalToCartesian(double & x, double & y, double & z, double r, double t
 
 double Distance(double x1, double y1, double z1, double x2, double y2, double z2){
 	return sqrt( pow(x2-x1,2) + pow(y2-y1,2) + pow(z2-z1,2));
-	}
+}
 	
 double DistanceOnASphere(double r, double theta1, double phi1, double theta2, double phi2){
 	return TMath::ACos(TMath::Cos(phi1)*TMath::Cos(phi2) + (TMath::Sin(phi1)*TMath::Sin(phi2))*TMath::Cos(theta1-theta2));
+}
+
+double cross_section (double T) {
+	double gl = 0.5+sin2_thetaW;
+	double gr = sin2_thetaW;
+
+	return ((2*(pow(G_F,2))*m_e)/Be7_energy)*(pow(gl,2) + pow(gr,2)*pow(1-T/Be7_energy,2) - gl*gr*m_e*T/pow(Be7_energy,2));
+}
+
+double CalculateEventEnergy () {
+	double EventEnergy, test;
+	bool flag = false;
+
+	while (flag == false) {
+		flag = false;
+		EventEnergy = gRandom -> Uniform(0.,max_eEnergy);
+		test = gRandom -> Uniform(0.,cross_section(0.)); //the maximum cross section is at T=0
+		if (test < cross_section(EventEnergy)) {
+			flag = true;
+		}
 	}
+
+	return EventEnergy;
+}
 
 double ClosestPMTIndex (double x_Event,double y_Event,double z_Event, vector<vector<double>> & PMT_Position_Spherical) {
 
@@ -151,21 +178,19 @@ double ClosestPMTIndex (double x_Event,double y_Event,double z_Event, vector<vec
 		r_PMT = PMT_Position_Spherical[PMT][0];
 		theta_PMT = PMT_Position_Spherical[PMT][1];
 		phi_PMT = PMT_Position_Spherical[PMT][2];
-		//CartesianToSpherical(r_PMT, theta_PMT, phi_PMT,x_PMT,y_PMT,z_PMT);
 		Distance_Temp = DistanceOnASphere(r_PMT, theta_PMT, phi_PMT,theta_Event, phi_Event);
-		//Distance_Temp = r_PMT*TMath::ACos(TMath::Cos(phi_PMT)*TMath::Cos(phi_Event) + (TMath::Sin(phi_PMT)*TMath::Sin(phi_Event))*TMath::Cos(theta_PMT-theta_Event));	
 		//cout << PMT <<  " r " << r_PMT << "  th " <<   theta_PMT << "  phi " << phi_PMT <<  endl;
 		
 		if(Distance_Temp<MinDistance){
 			Closest = PMT;
 			MinDistance = Distance_Temp;
-			} 
+		} 
 		if (MinDistance*JUNORadius <= PMTRadius) {
 
 			Min_Distance_t = JUNORadius * MinDistance;
 
 			return Closest;
-			}
+		}
 
 		//Code to speed up the process, should work but a check is due
 		if (Distance_Temp > MaxPMTDistance*JUNORadius + 0.25) {
@@ -196,7 +221,7 @@ void MovePhoton (double & x,double& y , double& z, double j, double k, double l,
 	return;
 }
 
-Tuple Generate_Cone (double theta_0, double phi_0, double angle, TRandom* gRandom) {
+Tuple Generate_Cone (double theta_0, double phi_0, double angle) {
 
 	Tuple out;
     double phi_out, theta_out;
@@ -243,25 +268,72 @@ Tuple Generate_Cone (double theta_0, double phi_0, double angle, TRandom* gRando
 	return out;
 }
 
+double GenerateScintStartTime () {
+
+	double StartTime;
+
+	double Check = gRandom -> Uniform(0,1);
+
+	if (Check < 0.707) {
+		StartTime = gRandom -> Exp(4.6*pow(10,-9));
+	} else if (Check < 0.912) {
+		StartTime = gRandom -> Exp(15.1*pow(10,-9));
+	} else if (Check < 0.972) {
+		StartTime = gRandom -> Exp(76.1*pow(10,-9));
+	} else {
+		StartTime = gRandom -> Exp(397*pow(10,-9));
+	}
+
+	return StartTime;
+}
+
+int CheckHit (ofstream& WriteOutputText, int SeenPhotons) {
+
+	if (Closest_PMT_t != -1) {
+
+		WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
+		Hit_t = 1;
+		SeenPhotons++;
+
+	} else {Hit_t = 0;}
+
+
+	return SeenPhotons;
+}
+
 //Generator for all the photons
 
-int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhotons, TTree* t, vector<vector<double>> PMT_Position_Spherical, bool RandomPos) {
+int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>> PMT_Position_Spherical, bool RandomPos) {
 
 	double x_Int,y_Int,z_Int,r_Int,theta_Int,phi_Int;
 	double theta_vers,phi_vers,trash;
 	int SeenPhotons = 0;
 
+	//Generate a random interaction vertex
+
 	if (RandomPos == true ) {
 		r_Int = gRandom -> TRandom::Uniform(FV);
 		theta_Int = gRandom -> TRandom::Uniform(2*PI);
 		phi_Int = TMath::ACos(-1.+2.*gRandom->TRandom::Uniform(0,1));
-
 		SphericalToCartesian(x_Int,y_Int,z_Int,r_Int,theta_Int,phi_Int);
 	} else {
 		x_Int = 0;
 		y_Int = 0;
 		z_Int = 0;
 	}
+
+	//Randomize the energy of the event
+	double Event_Energy = CalculateEventEnergy();
+
+	double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0.5)); //angle between the solar-nu and the electron scattered (assuming 7Be-nu)
+	double beta_el = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
+	double theta_Cher = acos(1/(beta_el*n)); //Cherenkov angle
+
+	int Photons = LY*Event_Energy*SurvivingProbability;
+	int CherenkovPhotons = ChScRatio*Photons;
+
+	//cout<<Photons<<"  "<<CherenkovPhotons<<"  "<<Event_Energy<<endl;
+	//cout<<max_eEnergy<<endl;
 
 	//Generate SCINTILLATION Photons
 	
@@ -280,8 +352,10 @@ int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhoton
 		
 		CartesianToSpherical(trash,theta_t,phi_t,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
 
+		Closest_PMT_t = ClosestPMTIndex(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,PMT_Position_Spherical);
+
 		TravelledDistance_t = Distance(x_Int,y_Int,z_Int,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
-		Type_t = 0;
+		Type_t = 0; 
 		Electron_Energy_t = Event_Energy;
 		Neutrino_Energy_t = Be7_energy;
 
@@ -289,28 +363,20 @@ int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhoton
 		Int_Vertex_y_t = y_Int;
 		Int_Vertex_z_t = z_Int;
 		
-
-
-		Start_Time_t = gRandom -> TRandom::Exp(4*pow(10,-8));
+		Start_Time_t = GenerateScintStartTime();
 		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
+
+		if (iPh == 0) IsFirst_t = true;
+		else IsFirst_t = false;
 		
 		//cout << iPh << "\t" << xx_at_PMTs << "\t" << yy_at_PMTs << "\t" << zz_at_PMTs << endl;
-
-		//int IndexExample = ClosestPMTIndex(Scintillation_Cartesian_atPMTs[iPh][0],Scintillation_Cartesian_atPMTs[iPh][1],Scintillation_Cartesian_atPMTs[iPh][2]);
-
-		Closest_PMT_t = ClosestPMTIndex(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,PMT_Position_Spherical);
 			
 		//cout << "PHOTON " << iPh << " : CLOSEST INDEX IS = " << IndexExample << endl;
 
 		//Generate the photon only if it hits the PMT
-		if (Closest_PMT_t != -1) {
+		SeenPhotons = CheckHit(WriteOutputText,SeenPhotons);
 
-			WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
-			//h_ClosestIndex->Fill(Closest_PMT_t);
-			Hit_t = 1;
-			SeenPhotons++;
-
-		} else {Hit_t = 0;}
+		TotalPhotons++;
 
 		t -> Fill();
 		
@@ -323,11 +389,11 @@ int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhoton
 	Tuple a;
 	Tuple b;
 
-	a = Generate_Cone(0.,0.,theta_e,gRandom);
+	a = Generate_Cone(0.,0.,theta_e);
 
 	for (int iPh=0; iPh<CherenkovPhotons; iPh++) {
 		
-		b = Generate_Cone(a.x,a.y,theta_Cher,gRandom);
+		b = Generate_Cone(a.x,a.y,theta_Cher);
 
 		theta_vers = b.x;
 		phi_vers = b.y;
@@ -356,21 +422,12 @@ int GeneratePhotons (ofstream& WriteOutputText, int Photons, int CherenkovPhoton
 		Start_Time_t = 0.;
 		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
 
+		IsFirst_t = false;
+
 		//Generate the photon only if it hits the PMT
-		if (Closest_PMT_t != -1) {
+		CheckHit(WriteOutputText,SeenPhotons);
 
-			WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
-	
-			//h_ClosestIndex->Fill(Closest_PMT_t);
-
-			Hit_t = 1;
-
-			SeenPhotons++;
-
-		} else {
-
-			Hit_t = 0;
-		}
+		TotalPhotons++;
 
 		t -> Fill();
 	}
@@ -399,10 +456,6 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	}
 	
 	cout << "################################" << endl;
-	
-	int LY;
-	double ChScRatio;
-	int NEvents;
 
 	// quite rough; to be changed
 	istringstream iss(col2[0]);
@@ -415,29 +468,17 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	iss3 >> FV;	
 	// ### End parsing	
 	
-	int Photons = LY*Event_Energy*SurvivingProbability;
-	int CherenkovPhotons = ChScRatio*Photons;
-	
 	gRandom = new TRandom3(0);
 	gRandom->SetSeed(0);
 	
 	std::vector<vector<double>> PMT_Position_Spherical;		
 		
-	/*TH1F *h_Photon_Direction_x = new TH1F("h_Photon_Direction_x","h_Photon_Direction_x",500,-1,1);
-	TH1F *h_Photon_Direction_y = new TH1F("h_Photon_Direction_y","h_Photon_Direction_y",500,-1,1);
-	TH1F *h_Photon_Direction_z = new TH1F("h_Photon_Direction_z","h_Photon_Direction_z",500,-1,1);
-	TH1F *h_Photon_Direction_r = new TH1F("h_Photon_Direction_r","h_Photon_Direction_r",500,0,22000);
-	TH1F *h_Photon_Direction_theta = new TH1F("h_Photon_Direction_theta","h_Photon_Direction_theta",500,0,2*PI);	
-	TH1F *h_Photon_Direction_phi = new TH1F("h_Photon_Direction_phi","h_Photon_Direction_phi",500,0,PI);			
-	TH1F *h_ClosestIndex = new TH1F("h_ClosestIndex","h_ClosestIndex",1000,0,20000);*/
-	
 	std::cout << "AbsorptionProbability = " << AbsorptionProbability << endl;
 	cout << "SurvivingProbability = " << SurvivingProbability << endl;
-	cout<<"Neutrino-electron angle = "<<theta_e*180./M_PI<<" deg"<<endl;
-	cout<<"Cherenkov angle = "<<theta_Cher*180./M_PI<<" deg"<<endl;
+	//cout<<"Neutrino-electron angle = "<<theta_e*180./M_PI<<" deg"<<endl;
+	//cout<<"Cherenkov angle = "<<theta_Cher*180./M_PI<<" deg"<<endl;
 
-
-	cout <<"Scintillation photons generated per event = " << Photons << endl;
+	cout <<"Scintillation photons generated @ 1 MeV = " << int(LY*SurvivingProbability) << endl;
 	cout <<"Number of events generated = " << NEvents << endl << endl;
 
 	//Making the tree
@@ -463,6 +504,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 	t->Branch("Min_Distance", &Min_Distance_t, "Min_Distance/D");
 	t->Branch("Hit", &Hit_t, "Hit/O");
+	t->Branch("IsFirst", &IsFirst_t, "IsFirst/O"); //first photon generated (useful if you want to see only the property of the scattered electron)
 
 	// LOAD PMTs position
 	ifstream ReadPMTPosition;
@@ -512,17 +554,11 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 	TFile *foutput = new TFile (Output_Rootfile.c_str(), "RECREATE");
 	foutput->cd();
-	/*h_Photon_Direction_x->Write();
-	h_Photon_Direction_y->Write();
-	h_Photon_Direction_z->Write();
-	h_Photon_Direction_r->Write();
-	h_Photon_Direction_theta->Write();
-	h_Photon_Direction_phi->Write();
-	h_ClosestIndex->Write(); */
+
 	int SeenPhotons = 0;
 
 	for (int i=0; i<NEvents; i++) {
-		SeenPhotons += GeneratePhotons(WriteOutputText,Photons,CherenkovPhotons, t, PMT_Position_Spherical, false);
+		SeenPhotons += GeneratePhotons(WriteOutputText, t, PMT_Position_Spherical, true);
 		if (NEvents > 10) {  //to avoid floating point exceptions for NEvents < 10
 			if (i % (NEvents/10) == 0 && i != 0 && NEvents > 10) { // check if the index is a multiple of tenth
 			std::cout << i << "-th Event ; " << (i / (NEvents/10)) * 10 << "% of events simulated \n";
@@ -538,7 +574,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
    // APPENDING text output to Output_Text text file
 	WriteOutputText.close();
 
-	cout << "Geometric coverage = " << double(SeenPhotons)/double((CherenkovPhotons+Photons)*NEvents) <<endl;
+	cout << "Geometric coverage = " << double(SeenPhotons)/double(TotalPhotons) <<endl;
 	cout << "#############" << endl;
 	
 	return 0;
