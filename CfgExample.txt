@@ -1,3 +1,4 @@
-9846
-0.01
-1
+LY 9846
+ChScRatio 0.01
+NEvents 10
+FV 15.0
