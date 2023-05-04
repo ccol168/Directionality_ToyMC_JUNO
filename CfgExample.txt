@@ -1,4 +1,6 @@
 LY 9846
 ChScRatio 0.01
-NEvents 10
+NEvents 5000
 FV 15.0
+CherenkovTimes Rootfiles_Apeksha/Cherenkov_tofcorrected_hittime_hamamatsu_wtts_wnoisehits.root
+ScintillationTimes Rootfiles_Apeksha/Scintillation_tofcorrected_hittime_hamamatsu_wtts_wnoisehits.root

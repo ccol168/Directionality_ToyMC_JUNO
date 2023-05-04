@@ -51,6 +51,7 @@ int LY;
 double ChScRatio;
 int NEvents;
 int TotalPhotons = 0;
+TH1D** Time_PDFs = new TH1D*[2]; //container for the time PDFs, pos 0 for Cherenkov, pos 1 for scintillation
 
 //Useful values
 
@@ -77,6 +78,7 @@ double El_Direction_x_t,El_Direction_y_t,El_Direction_z_t,phi_t,theta_t,Closest_
 double Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t, Ph_r_AtPMT_t, Ph_theta_AtPMT_t, Ph_phi_AtPMT_t, TravelledDistance_t;
 double Int_Vertex_x_t,Int_Vertex_y_t,Int_Vertex_z_t;
 bool Type_t, IsFirst_t;
+int NEvent_t;
 
 double Min_Distance_t;
 bool Hit_t;
@@ -140,6 +142,7 @@ double DistanceOnASphere(double r, double theta1, double phi1, double theta2, do
 	return TMath::ACos(TMath::Cos(phi1)*TMath::Cos(phi2) + (TMath::Sin(phi1)*TMath::Sin(phi2))*TMath::Cos(theta1-theta2));
 }
 
+//calculate 1st order cross section for a neutrino-electron elastic scattering
 double cross_section (double T) {
 	double gl = 0.5+sin2_thetaW;
 	double gr = sin2_thetaW;
@@ -147,6 +150,7 @@ double cross_section (double T) {
 	return ((2*(pow(G_F,2))*m_e)/Be7_energy)*(pow(gl,2) + pow(gr,2)*pow(1-T/Be7_energy,2) - gl*gr*m_e*T/pow(Be7_energy,2));
 }
 
+//sample cross_section with an accept-reject method
 double CalculateEventEnergy () {
 	double EventEnergy, test;
 	bool flag = false;
@@ -192,7 +196,7 @@ double ClosestPMTIndex (double x_Event,double y_Event,double z_Event, vector<vec
 			return Closest;
 		}
 
-		//Code to speed up the process, should work but a check is due
+		//Code to speed up the process
 		if (Distance_Temp > MaxPMTDistance*JUNORadius + 0.25) {
 			PMT += 9;
 		}
@@ -291,7 +295,7 @@ int CheckHit (ofstream& WriteOutputText, int SeenPhotons) {
 
 	if (Closest_PMT_t != -1) {
 
-		WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << endl;
+		WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << "  "<< NEvent_t << endl;
 		Hit_t = 1;
 		SeenPhotons++;
 
@@ -303,7 +307,7 @@ int CheckHit (ofstream& WriteOutputText, int SeenPhotons) {
 
 //Generator for all the photons
 
-int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>> PMT_Position_Spherical, bool RandomPos) {
+int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>> PMT_Position_Spherical, bool RandomPos, int NEvent) {
 
 	double x_Int,y_Int,z_Int,r_Int,theta_Int,phi_Int;
 	double theta_vers,phi_vers,trash;
@@ -363,8 +367,10 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		Int_Vertex_y_t = y_Int;
 		Int_Vertex_z_t = z_Int;
 		
-		Start_Time_t = GenerateScintStartTime();
+		Start_Time_t = Time_PDFs[1] -> GetRandom();
 		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
+
+		NEvent_t = NEvent;
 
 		if (iPh == 0) IsFirst_t = true;
 		else IsFirst_t = false;
@@ -419,10 +425,12 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		Int_Vertex_y_t = 0.;
 		Int_Vertex_z_t = 0.;
 
-		Start_Time_t = 0.;
+		Start_Time_t = Time_PDFs[0] -> GetRandom();
 		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
 
 		IsFirst_t = false;
+
+		NEvent_t = NEvent;
 
 		//Generate the photon only if it hits the PMT
 		CheckHit(WriteOutputText,SeenPhotons);
@@ -442,6 +450,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	vector<string> col1;
 	vector<string> col2;
 	string line;
+	string cher_times, scint_times;
 
 	// ### Parsing
 	cout << "######### Configuration #########" << endl;
@@ -452,7 +461,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		if (!(iss >> s1 >> s2)) { break; } // error
 			col1.push_back(s1);
 			col2.push_back(s2);
-			cout << setw(10) << s1 <<  "\t\t" << s2 << endl;
+			cout << setw(11) << s1 <<  "\t\t" << s2 << endl;
 	}
 	
 	cout << "################################" << endl;
@@ -466,8 +475,18 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	iss2 >> NEvents;
 	istringstream iss3(col2[3]);	
 	iss3 >> FV;	
+	istringstream iss4(col2[4]);	
+	iss4 >> cher_times;
+	istringstream iss5(col2[5]);	
+	iss5 >> scint_times;
 	// ### End parsing	
+
+	TFile *cher_PDFs = new TFile(cher_times.c_str());
+	TFile *scint_PDFs = new TFile(scint_times.c_str());
 	
+	Time_PDFs[0] = (TH1D*)cher_PDFs->Get("ch_hit_tofcorr");
+	Time_PDFs[1] = (TH1D*)scint_PDFs->Get("sc_hit_tofcorr");
+
 	gRandom = new TRandom3(0);
 	gRandom->SetSeed(0);
 	
@@ -481,7 +500,11 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	cout <<"Scintillation photons generated @ 1 MeV = " << int(LY*SurvivingProbability) << endl;
 	cout <<"Number of events generated = " << NEvents << endl << endl;
 
+	//foutput must be defined before the tree to avoid errors 
+	TFile *foutput = new TFile (Output_Rootfile.c_str(), "RECREATE");
+
 	//Making the tree
+	
 	TTree *t = new TTree("t","New Tree");
 	t->Branch("El_Direction_x", &El_Direction_x_t, "El_Direction_x/D");
 	t->Branch("El_Direction_y", &El_Direction_y_t, "El_Direction_y/D");
@@ -501,6 +524,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	t->Branch("Int_Vertex_z", &Int_Vertex_z_t, "Int_Vertex_z/D");
 	t->Branch("Neutrino_Energy", &Neutrino_Energy_t, "Neutrino_Energy/D");
 	t->Branch("Type", &Type_t, "Type/O");
+	t->Branch("NEvent",&NEvent_t,"NEvent/I");
 
 	t->Branch("Min_Distance", &Min_Distance_t, "Min_Distance/D");
 	t->Branch("Hit", &Hit_t, "Hit/O");
@@ -552,13 +576,13 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	ofstream WriteOutputText;
 	WriteOutputText.open(Output_Text.c_str(),ios::app);	
 
-	TFile *foutput = new TFile (Output_Rootfile.c_str(), "RECREATE");
+	
 	foutput->cd();
 
 	int SeenPhotons = 0;
 
 	for (int i=0; i<NEvents; i++) {
-		SeenPhotons += GeneratePhotons(WriteOutputText, t, PMT_Position_Spherical, true);
+		SeenPhotons += GeneratePhotons(WriteOutputText, t, PMT_Position_Spherical, true, i);
 		if (NEvents > 10) {  //to avoid floating point exceptions for NEvents < 10
 			if (i % (NEvents/10) == 0 && i != 0 && NEvents > 10) { // check if the index is a multiple of tenth
 			std::cout << i << "-th Event ; " << (i / (NEvents/10)) * 10 << "% of events simulated \n";
