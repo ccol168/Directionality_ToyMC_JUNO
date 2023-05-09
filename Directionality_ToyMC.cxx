@@ -58,7 +58,7 @@ TH1D** Time_PDFs = new TH1D*[2]; //container for the time PDFs, pos 0 for Cheren
 double n = 1.55 ; //refraction index
 double c = 299792458 ; // m/s
 double m_e = 0.51099895; //MeV    electron mass
-double Be7_energy = 0.862; //MeV    energy of a 7Be neutrino
+double Be7_energy = 1.44; //MeV    energy of a 7Be neutrino
 //double Event_Energy = 0.5; //MeV
 double G_F = 1.1663787*pow(10,-11); //MeV^-2  Fermi constant
 double sin2_thetaW = 0.22290; //Weinberg angle
@@ -157,7 +157,7 @@ double CalculateEventEnergy () {
 
 	while (flag == false) {
 		flag = false;
-		EventEnergy = gRandom -> Uniform(0.,max_eEnergy);
+		EventEnergy = gRandom -> Uniform(0.8,max_eEnergy);
 		test = gRandom -> Uniform(0.,cross_section(0.)); //the maximum cross section is at T=0
 		if (test < cross_section(EventEnergy)) {
 			flag = true;
@@ -421,9 +421,9 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		Electron_Energy_t = Event_Energy;
 		Neutrino_Energy_t = Be7_energy;
 
-		Int_Vertex_x_t = 0.;
-		Int_Vertex_y_t = 0.;
-		Int_Vertex_z_t = 0.;
+		Int_Vertex_x_t = x_Int;
+		Int_Vertex_y_t = y_Int;
+		Int_Vertex_z_t = z_Int;
 
 		Start_Time_t = Time_PDFs[0] -> GetRandom();
 		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
