@@ -59,11 +59,13 @@ double n = 1.55 ; //refraction index
 double c = 299792458 ; // m/s
 double m_e = 0.51099895; //MeV    electron mass
 double Be7_energy = 0.876; //MeV    energy of a 7Be neutrino
+double pep_energy = 1.44; //MeV  energy of a pep neutrino
+double nu_energy;
 //double Event_Energy = 0.5; //MeV
 double G_F = 1.1663787*pow(10,-11); //MeV^-2  Fermi constant
 double sin2_thetaW = 0.22290; //Weinberg angle
 
-double max_eEnergy = 2*pow(Be7_energy,2)/(m_e+2*Be7_energy); //MeV  maximum electron energy from a Be7-neutrino scattering
+double max_eEnergy; //  maximum electron energy from a Be7-neutrino scattering
 
 double RefractionIndex = 1.5;
 double TravelledDistance = 19.0;
@@ -82,6 +84,7 @@ int NEvent_t;
 
 double Min_Distance_t;
 bool Hit_t;
+bool fastmode; //does not save the events at more than 5 ns
 
 double MaxPMTDistance; //maximum distance in phi between two PMTs
 
@@ -147,7 +150,7 @@ double cross_section (double T) {
 	double gl = 0.5+sin2_thetaW;
 	double gr = sin2_thetaW;
 
-	return ((2*(pow(G_F,2))*m_e)/Be7_energy)*(pow(gl,2) + pow(gr,2)*pow(1-T/Be7_energy,2) - gl*gr*m_e*T/pow(Be7_energy,2));
+	return ((2*(pow(G_F,2))*m_e)/nu_energy)*(pow(gl,2) + pow(gr,2)*pow(1-T/nu_energy,2) - gl*gr*m_e*T/pow(nu_energy,2));
 }
 
 //sample cross_section with an accept-reject method
@@ -155,9 +158,11 @@ double CalculateEventEnergy () {
 	double EventEnergy, test;
 	bool flag = false;
 
+	max_eEnergy = 2*pow(nu_energy,2)/(m_e+2*nu_energy); //MeV
+
 	while (flag == false) {
 		flag = false;
-		EventEnergy = gRandom -> Uniform(0.,max_eEnergy);
+		EventEnergy = gRandom -> Uniform(0.2,max_eEnergy);
 		test = gRandom -> Uniform(0.,cross_section(0.)); //the maximum cross section is at T=0
 		if (test < cross_section(EventEnergy)) {
 			flag = true;
@@ -329,7 +334,7 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 	//Randomize the energy of the event
 	double Event_Energy = CalculateEventEnergy();
 
-	double theta_e = acos((1+m_e/Be7_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0.5)); //angle between the solar-nu and the electron scattered (assuming 7Be-nu)
+	double theta_e = acos((1+m_e/nu_energy)*pow(Event_Energy/(Event_Energy+2*m_e),0.5)); //angle between the solar-nu and the electron scattered (assuming 7Be-nu)
 	double beta_el = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
 	double theta_Cher = acos(1/(beta_el*n)); //Cherenkov angle
 
@@ -344,6 +349,12 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 	for(int iPh=0; iPh<Photons; iPh++){
 
 		//Generate unit vector over a sphere
+		Start_Time_t = Time_PDFs[1] -> GetRandom();
+
+		if (fastmode && Start_Time_t > 5) {
+			continue;
+		}
+
 		theta_vers = gRandom->TRandom::Uniform(2*PI);
 		phi_vers = TMath::ACos(-1.+2.*gRandom->TRandom::Uniform(0,1));
 		SphericalToCartesian(El_Direction_x_t,El_Direction_y_t,El_Direction_z_t,1,theta_vers,phi_vers);
@@ -361,13 +372,12 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		TravelledDistance_t = Distance(x_Int,y_Int,z_Int,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
 		Type_t = 0; 
 		Electron_Energy_t = Event_Energy;
-		Neutrino_Energy_t = Be7_energy;
+		Neutrino_Energy_t = nu_energy;
 
 		Int_Vertex_x_t = x_Int;
 		Int_Vertex_y_t = y_Int;
 		Int_Vertex_z_t = z_Int;
 		
-		Start_Time_t = Time_PDFs[1] -> GetRandom();
 		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
 
 		NEvent_t = NEvent;
@@ -398,7 +408,13 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 	a = Generate_Cone(0.,0.,theta_e);
 
 	for (int iPh=0; iPh<CherenkovPhotons; iPh++) {
-		
+
+		Start_Time_t = Time_PDFs[0] -> GetRandom();
+
+		if (fastmode && Start_Time_t > 5) {
+			continue;
+		}
+
 		b = Generate_Cone(a.x,a.y,theta_Cher);
 
 		theta_vers = b.x;
@@ -419,13 +435,12 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 		Type_t = 1;
 		Electron_Energy_t = Event_Energy;
-		Neutrino_Energy_t = Be7_energy;
+		Neutrino_Energy_t = nu_energy;
 
 		Int_Vertex_x_t = x_Int;
 		Int_Vertex_y_t = y_Int;
 		Int_Vertex_z_t = z_Int;
 
-		Start_Time_t = Time_PDFs[0] -> GetRandom();
 		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
 
 		IsFirst_t = false;
@@ -450,7 +465,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	vector<string> col1;
 	vector<string> col2;
 	string line;
-	string cher_times, scint_times;
+	string cher_times, scint_times, typenu;
 
 	// ### Parsing
 	cout << "######### Configuration #########" << endl;
@@ -479,6 +494,11 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	iss4 >> cher_times;
 	istringstream iss5(col2[5]);	
 	iss5 >> scint_times;
+	istringstream iss6(col2[6]);	
+	iss6 >> typenu;
+	istringstream iss7(col2[7]);	
+	iss7 >> fastmode;
+
 	// ### End parsing	
 
 	TFile *cher_PDFs = new TFile(cher_times.c_str());
@@ -489,7 +509,16 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 	gRandom = new TRandom3(0);
 	gRandom->SetSeed(0);
-	
+
+	if (typenu == "Be7") {
+		nu_energy = Be7_energy;
+	} else if (typenu == "pep") {
+		nu_energy = pep_energy;
+	} else {
+		cout << "ERROR : invalid nu type in "<< Configuration_Text.c_str() << endl;
+		exit(1);
+	}
+
 	std::vector<vector<double>> PMT_Position_Spherical;		
 		
 	std::cout << "AbsorptionProbability = " << AbsorptionProbability << endl;
@@ -592,7 +621,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	}
 
 	t->Write();
-	
+		
 	foutput->Close();
 
    // APPENDING text output to Output_Text text file
