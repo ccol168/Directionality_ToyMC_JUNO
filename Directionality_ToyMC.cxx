@@ -344,7 +344,10 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 	int CherenkovPhotons = ChScRatio*Photons;
 
 	if (NEvent < 10) {
-		cout << Photons << "   " << CherenkovPhotons << endl;
+		cout << "Event #" << NEvent << " :  " << Photons << " scintillation and " << CherenkovPhotons << " Cherenkov photons emitted";
+		cout << " (Electron energy = " << Event_Energy << " MeV )" << endl;  
+	} else if (NEvent == 10) {
+		cout<<endl;
 	}
 
 	bool IsFirstFlag = true;
@@ -484,6 +487,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	vector<string> col2;
 	string line;
 	string cher_times, scint_times, typenu;
+	bool RandomIntVertex;
 
 	// ### Parsing
 	cout << "######### Configuration #########" << endl;
@@ -518,6 +522,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	iss7 >> fastmode;
 	istringstream iss8(col2[8]);	
 	iss8 >> min_eEnergy;
+	istringstream iss9(col2[9]);	
+	iss9 >> RandomIntVertex;
 
 	// ### End parsing	
 
@@ -547,7 +553,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	//cout<<"Cherenkov angle = "<<theta_Cher*180./M_PI<<" deg"<<endl;
 
 	cout <<"Scintillation photons generated @ 1 MeV = " << int(LY*SurvivingProbability) << endl;
-	cout <<"Number of events generated = " << NEvents << endl << endl;
+	cout <<"Number of events generated = " << NEvents << endl;
+	cout <<"Energy of the incoming neutrino = " << nu_energy << " MeV" << endl << endl;
 
 	//foutput must be defined before the tree to avoid errors 
 	TFile *foutput = new TFile (Output_Rootfile.c_str(), "RECREATE");
@@ -631,7 +638,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	int SeenPhotons = 0;
 
 	for (int i=0; i<NEvents; i++) {
-		SeenPhotons += GeneratePhotons(WriteOutputText, t, PMT_Position_Spherical, false, i);
+		SeenPhotons += GeneratePhotons(WriteOutputText, t, PMT_Position_Spherical, RandomIntVertex, i);
 		if (NEvents > 10) {  //to avoid floating point exceptions for NEvents < 10
 			if (i % (NEvents/10) == 0 && i != 0 && NEvents > 10) { // check if the index is a multiple of tenth
 			std::cout << i << "-th Event ; " << (i / (NEvents/10)) * 10 << "% of events simulated \n";
