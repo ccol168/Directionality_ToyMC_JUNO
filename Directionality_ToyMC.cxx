@@ -65,7 +65,8 @@ double nu_energy;
 double G_F = 1.1663787*pow(10,-11); //MeV^-2  Fermi constant
 double sin2_thetaW = 0.22290; //Weinberg angle
 
-double max_eEnergy; //  maximum electron energy from a Be7-neutrino scattering
+double max_eEnergy; //  maximum electron energy from a neutrino scattering
+double min_eEnergy; // minimum deposited energy from a neutrino scattering
 
 double RefractionIndex = 1.5;
 double TravelledDistance = 19.0;
@@ -85,6 +86,8 @@ int NEvent_t;
 double Min_Distance_t;
 bool Hit_t;
 bool fastmode; //does not save the events at more than 5 ns
+
+
 
 double MaxPMTDistance; //maximum distance in phi between two PMTs
 
@@ -162,7 +165,7 @@ double CalculateEventEnergy () {
 
 	while (flag == false) {
 		flag = false;
-		EventEnergy = gRandom -> Uniform(0.2,max_eEnergy);
+		EventEnergy = gRandom -> Uniform(min_eEnergy,max_eEnergy);
 		test = gRandom -> Uniform(0.,cross_section(0.)); //the maximum cross section is at T=0
 		if (test < cross_section(EventEnergy)) {
 			flag = true;
@@ -246,7 +249,6 @@ Tuple Generate_Cone (double theta_0, double phi_0, double angle) {
         phi_out = phi;
         theta_out = theta;
         
-
     } else if (phi_0 == M_PI) {
 
         phi_out = PI - phi;
@@ -341,6 +343,14 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 	int Photons = LY*Event_Energy*SurvivingProbability;
 	int CherenkovPhotons = ChScRatio*Photons;
 
+	if (NEvent < 10) {
+		cout << Photons << "   " << CherenkovPhotons << endl;
+	}
+
+	bool IsFirstFlag = true;
+
+	double Provv_StartTime;
+
 	//cout<<Photons<<"  "<<CherenkovPhotons<<"  "<<Event_Energy<<endl;
 	//cout<<max_eEnergy<<endl;
 
@@ -349,7 +359,12 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 	for(int iPh=0; iPh<Photons; iPh++){
 
 		//Generate unit vector over a sphere
-		Start_Time_t = Time_PDFs[1] -> GetRandom();
+
+		do {
+			Provv_StartTime = Time_PDFs[1] -> GetRandom();
+		} while (Provv_StartTime < -5);
+		
+		Start_Time_t = Provv_StartTime;
 
 		if (fastmode && Start_Time_t > 5) {
 			continue;
@@ -361,11 +376,11 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 		MovePhoton(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,x_Int,y_Int,z_Int,El_Direction_x_t,El_Direction_y_t,El_Direction_z_t);
 
+		CartesianToSpherical(trash,theta_t,phi_t,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
+
 		Ph_r_AtPMT_t = JUNORadius; // NOT REALLY TRUE
 		Ph_theta_AtPMT_t = theta_t; // TRUE ONLY WITHOUT ABSORPTION
 		Ph_phi_AtPMT_t = phi_t; // TRUE ONLY WITHOUT ABSORPTION
-		
-		CartesianToSpherical(trash,theta_t,phi_t,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
 
 		Closest_PMT_t = ClosestPMTIndex(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,PMT_Position_Spherical);
 
@@ -382,7 +397,10 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 		NEvent_t = NEvent;
 
-		if (iPh == 0) IsFirst_t = true;
+		if (IsFirstFlag) {
+			IsFirst_t = true;
+			IsFirstFlag = false;
+		} 
 		else IsFirst_t = false;
 		
 		//cout << iPh << "\t" << xx_at_PMTs << "\t" << yy_at_PMTs << "\t" << zz_at_PMTs << endl;
@@ -423,11 +441,11 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 		MovePhoton(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,x_Int,y_Int,z_Int,El_Direction_x_t,El_Direction_y_t,El_Direction_z_t);
 
+		CartesianToSpherical(trash,theta_t,phi_t,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
+
 		Ph_r_AtPMT_t = JUNORadius; // NOT REALLY TRUE
 		Ph_theta_AtPMT_t = theta_t; // TRUE ONLY WITHOUT ABSORPTION
 		Ph_phi_AtPMT_t = phi_t; // TRUE ONLY WITHOUT ABSORPTION
-		
-		CartesianToSpherical(trash,theta_t,phi_t,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
 
 		TravelledDistance_t = Distance(x_Int,y_Int,z_Int,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
 
@@ -498,6 +516,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	iss6 >> typenu;
 	istringstream iss7(col2[7]);	
 	iss7 >> fastmode;
+	istringstream iss8(col2[8]);	
+	iss8 >> min_eEnergy;
 
 	// ### End parsing	
 
@@ -611,7 +631,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	int SeenPhotons = 0;
 
 	for (int i=0; i<NEvents; i++) {
-		SeenPhotons += GeneratePhotons(WriteOutputText, t, PMT_Position_Spherical, true, i);
+		SeenPhotons += GeneratePhotons(WriteOutputText, t, PMT_Position_Spherical, false, i);
 		if (NEvents > 10) {  //to avoid floating point exceptions for NEvents < 10
 			if (i % (NEvents/10) == 0 && i != 0 && NEvents > 10) { // check if the index is a multiple of tenth
 			std::cout << i << "-th Event ; " << (i / (NEvents/10)) * 10 << "% of events simulated \n";
