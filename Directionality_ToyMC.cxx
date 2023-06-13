@@ -69,13 +69,18 @@ double max_eEnergy; //  maximum electron energy from a neutrino scattering
 double min_eEnergy; // minimum deposited energy from a neutrino scattering
 
 double RefractionIndex = 1.5;
+
+// VARIABLES NO LONGER USEFUL
 double TravelledDistance = 19.0;
 double AbsorptionLength = 80.;
 double QE = 0.3;
 double AbsorptionProbability = (1-TMath::Exp(-TravelledDistance/AbsorptionLength));
 double ReemissionProbability = 0.75;
-	
 double SurvivingProbability = (1-AbsorptionProbability*(1-ReemissionProbability))*QE;
+
+
+
+int PEatMeV; //photoelectron emitted @ 1 MeV
 
 double El_Direction_x_t,El_Direction_y_t,El_Direction_z_t,phi_t,theta_t,Closest_PMT_t,Start_Time_t,Arr_Time_t,Electron_Energy_t,Neutrino_Energy_t,type_t;
 double Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t, Ph_r_AtPMT_t, Ph_theta_AtPMT_t, Ph_phi_AtPMT_t, TravelledDistance_t;
@@ -86,6 +91,7 @@ int NEvent_t;
 double Min_Distance_t;
 bool Hit_t;
 bool fastmode; //does not save the events at more than 5 ns
+double TimeCut; //cut photons emitted at times lower than timecut
 
 
 
@@ -160,8 +166,6 @@ double cross_section (double T) {
 double CalculateEventEnergy () {
 	double EventEnergy, test;
 	bool flag = false;
-
-	max_eEnergy = 2*pow(nu_energy,2)/(m_e+2*nu_energy); //MeV
 
 	while (flag == false) {
 		flag = false;
@@ -340,12 +344,12 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 	double beta_el = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
 	double theta_Cher = acos(1/(beta_el*n)); //Cherenkov angle
 
-	int Photons = LY*Event_Energy*SurvivingProbability;
+	int Photons = PEatMeV*Event_Energy;
 	int CherenkovPhotons = ChScRatio*Photons;
 
 	if (NEvent < 10) {
 		cout << "Event #" << NEvent << " :  " << Photons << " scintillation and " << CherenkovPhotons << " Cherenkov photons emitted";
-		cout << " (Electron energy = " << Event_Energy << " MeV )" << endl;  
+		cout << " (Electron energy = " << Event_Energy << " MeV)" << endl;  
 	} else if (NEvent == 10) {
 		cout<<endl;
 	}
@@ -365,7 +369,7 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 		do {
 			Provv_StartTime = Time_PDFs[1] -> GetRandom();
-		} while (Provv_StartTime < -5);
+		} while (Provv_StartTime < TimeCut);
 		
 		Start_Time_t = Provv_StartTime;
 
@@ -505,7 +509,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 	// quite rough; to be changed
 	istringstream iss(col2[0]);
-	iss >> LY;
+	iss >> PEatMeV;
 	istringstream iss1(col2[1]);
 	iss1 >> ChScRatio;
 	istringstream iss2(col2[2]);	
@@ -524,6 +528,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	iss8 >> min_eEnergy;
 	istringstream iss9(col2[9]);	
 	iss9 >> RandomIntVertex;
+	istringstream iss10(col2[10]);	
+	iss10 >> TimeCut;
 
 	// ### End parsing	
 
@@ -545,6 +551,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		exit(1);
 	}
 
+	max_eEnergy = 2*pow(nu_energy,2)/(m_e+2*nu_energy); //MeV
+
 	std::vector<vector<double>> PMT_Position_Spherical;		
 		
 	std::cout << "AbsorptionProbability = " << AbsorptionProbability << endl;
@@ -552,9 +560,10 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	//cout<<"Neutrino-electron angle = "<<theta_e*180./M_PI<<" deg"<<endl;
 	//cout<<"Cherenkov angle = "<<theta_Cher*180./M_PI<<" deg"<<endl;
 
-	cout <<"Scintillation photons generated @ 1 MeV = " << int(LY*SurvivingProbability) << endl;
+	cout <<"Scintillation photons generated @ 1 MeV = " << int(PEatMeV) << endl;
 	cout <<"Number of events generated = " << NEvents << endl;
-	cout <<"Energy of the incoming neutrino = " << nu_energy << " MeV" << endl << endl;
+	cout <<"Energy of the incoming neutrino = " << nu_energy << " MeV" << endl;
+	cout <<"Maximum electron energy = "<<max_eEnergy<<" MeV" <<endl<<endl;
 
 	//foutput must be defined before the tree to avoid errors 
 	TFile *foutput = new TFile (Output_Rootfile.c_str(), "RECREATE");
@@ -654,7 +663,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
    // APPENDING text output to Output_Text text file
 	WriteOutputText.close();
 
-	cout << "Geometric coverage = " << double(SeenPhotons)/double(TotalPhotons) <<endl;
+	cout << endl << "Geometric coverage = " << double(SeenPhotons)/double(TotalPhotons) <<endl;
 	cout << "#############" << endl;
 	
 	return 0;
