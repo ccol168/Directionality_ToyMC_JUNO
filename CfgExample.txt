@@ -1,10 +1,11 @@
-LY 9846
+PEatMeV 1672
 ChScRatio 0.0041
-NEvents 1000
+NEvents 10
 FV 15.0
-CherenkovTimes Rootfiles_Apeksha/Cherenkov_noNoise_noTTS.root
-ScintTimes Rootfiles_Apeksha/Scintillation_noNoise_noTTS.root
+CherenkovTimes Rootfiles_Apeksha/Cherenkov_tofcorrected_hittime_hamamatsu_wtts_wnoisehits.root
+ScintTimes Rootfiles_Apeksha/Scintillation_tofcorrected_hittime_hamamatsu_wtts_wnoisehits.root
 Nu_type pep
-Fastmode 1
+Fastmode 0
 Min_eEnergy 0.8
 RandomIntVertex 1
+Time_Cut -50
