@@ -400,7 +400,7 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		Int_Vertex_y_t = y_Int;
 		Int_Vertex_z_t = z_Int;
 		
-		Arr_Time_t = Start_Time_t + TravelledDistance_t/c*n;
+		Arr_Time_t = Start_Time_t + (TravelledDistance_t/c*n) * pow(10,9);
 
 		NEvent_t = NEvent;
 
@@ -470,7 +470,7 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		Int_Vertex_y_t = y_Int;
 		Int_Vertex_z_t = z_Int;
 
-		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
+		Arr_Time_t = Start_Time_t + (TravelledDistance_t/c*n)* pow(10,9);
 
 		IsFirst_t = false;
 
