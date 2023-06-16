@@ -41,7 +41,7 @@ def cos_alpha (theta,phi) : #assuming the sun to be in position (0,0)
 
 NEvents = max(NEvent+1)
 
-First_Hits = np.zeros(30)
+First_Hits = np.zeros(10)
 
 iout = 0
 First_thetas = []
@@ -63,15 +63,15 @@ for j in range(0,NEvents) :
     
     #print(Ordered_Vector)
 
-    for k in range (0,min(30,len(Ordered_Vector))) :
+    for k in range (0,min(10,len(Ordered_Vector))) :
         First_Hits[k] += Ordered_Vector[k][1]
         if k<5 :
             First_thetas.append(Ordered_Vector[k][2])
             First_phis.append(Ordered_Vector[k][3])
 
-NBin = np.arange(0,30,1)
+NBin = np.arange(0,10,1)
 
-plt.hist(NBin,30,weights=First_Hits/NEvents)
+plt.hist(NBin,10,weights=First_Hits/NEvents)
 plt.xlabel("# hit")
 plt.ylabel("Cherenkov probability")
 plt.title("Cherenkov probability")

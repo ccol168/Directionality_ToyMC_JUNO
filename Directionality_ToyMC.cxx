@@ -400,7 +400,7 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		Int_Vertex_y_t = y_Int;
 		Int_Vertex_z_t = z_Int;
 		
-		Arr_Time_t = Start_Time_t + TravelledDistance_t/(n*c);
+		Arr_Time_t = Start_Time_t + TravelledDistance_t/c*n;
 
 		NEvent_t = NEvent;
 
@@ -434,7 +434,11 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 	for (int iPh=0; iPh<CherenkovPhotons; iPh++) {
 
-		Start_Time_t = Time_PDFs[0] -> GetRandom();
+		do {
+			Provv_StartTime = Time_PDFs[0] -> GetRandom();
+		} while (Provv_StartTime < TimeCut);
+
+		Start_Time_t = Provv_StartTime;
 
 		if (fastmode && Start_Time_t > 5) {
 			continue;
@@ -491,6 +495,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	vector<string> col2;
 	string line;
 	string cher_times, scint_times, typenu;
+	string origin_rootfile;
 	bool RandomIntVertex;
 
 	// ### Parsing
@@ -517,27 +522,28 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	istringstream iss3(col2[3]);	
 	iss3 >> FV;	
 	istringstream iss4(col2[4]);	
-	iss4 >> cher_times;
+	iss4 >> origin_rootfile;
 	istringstream iss5(col2[5]);	
-	iss5 >> scint_times;
+	iss5 >> cher_times;
 	istringstream iss6(col2[6]);	
-	iss6 >> typenu;
+	iss6 >> scint_times;
 	istringstream iss7(col2[7]);	
-	iss7 >> fastmode;
+	iss7 >> typenu;
 	istringstream iss8(col2[8]);	
-	iss8 >> min_eEnergy;
+	iss8 >> fastmode;
 	istringstream iss9(col2[9]);	
-	iss9 >> RandomIntVertex;
+	iss9 >> min_eEnergy;
 	istringstream iss10(col2[10]);	
-	iss10 >> TimeCut;
+	iss10 >> RandomIntVertex;
+	istringstream iss11(col2[11]);	
+	iss11 >> TimeCut;
 
 	// ### End parsing	
 
-	TFile *cher_PDFs = new TFile(cher_times.c_str());
-	TFile *scint_PDFs = new TFile(scint_times.c_str());
+	TFile *rootfile = new TFile(origin_rootfile.c_str());
 	
-	Time_PDFs[0] = (TH1D*)cher_PDFs->Get("ch_hit_tofcorr");
-	Time_PDFs[1] = (TH1D*)scint_PDFs->Get("sc_hit_tofcorr");
+	Time_PDFs[0] = (TH1D*)rootfile->Get(cher_times.c_str());
+	Time_PDFs[1] = (TH1D*)rootfile->Get(scint_times.c_str());
 
 	gRandom = new TRandom3(0);
 	gRandom->SetSeed(0);
