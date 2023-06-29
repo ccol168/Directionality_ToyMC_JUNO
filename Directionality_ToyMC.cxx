@@ -5,7 +5,6 @@
 #include <sstream>
 #include <iomanip>
 
-#include <TApplication.h>
 #include <TVector3.h>
 #include <TFile.h>
 #include <TChain.h>
@@ -26,6 +25,7 @@
 #include <TGraphErrors.h>
 #include <TLegend.h>
 #include <TVirtualFitter.h>
+#include <TApplication.h>
 
 #include <TRandom3.h>
 #include <TFractionFitter.h>
@@ -55,7 +55,7 @@ TH1D** Time_PDFs = new TH1D*[2]; //container for the time PDFs, pos 0 for Cheren
 
 //Useful values
 
-double n = 1.55 ; //refraction index
+double n = 1.5 ; //refraction index
 double c = 299792458 ; // m/s
 double m_e = 0.51099895; //MeV    electron mass
 double Be7_energy = 0.876; //MeV    energy of a 7Be neutrino
@@ -63,7 +63,7 @@ double pep_energy = 1.44; //MeV  energy of a pep neutrino
 double nu_energy;
 //double Event_Energy = 0.5; //MeV
 double G_F = 1.1663787*pow(10,-11); //MeV^-2  Fermi constant
-double sin2_thetaW = 0.22290; //Weinberg angle
+double sin2_thetaW = 0.23116; //Weinberg angle
 
 double max_eEnergy; //  maximum electron energy from a neutrino scattering
 double min_eEnergy; // minimum deposited energy from a neutrino scattering
@@ -92,7 +92,7 @@ double Min_Distance_t;
 bool Hit_t;
 bool fastmode; //does not save the events at more than 5 ns
 double TimeCut; //cut photons emitted at times lower than timecut
-
+bool WrittenOutput;
 
 
 double MaxPMTDistance; //maximum distance in phi between two PMTs
@@ -305,8 +305,10 @@ double GenerateScintStartTime () {
 int CheckHit (ofstream& WriteOutputText, int SeenPhotons) {
 
 	if (Closest_PMT_t != -1) {
-
-		WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << "  "<< NEvent_t << endl;
+		if (WrittenOutput) {
+			WriteOutputText << theta_t << "  " << phi_t << "   " << Closest_PMT_t << "  " << Start_Time_t << "  " << Arr_Time_t << "  " << Type_t << "  "<< NEvent_t << "  ";
+			WriteOutputText << Int_Vertex_x_t << "  " << Int_Vertex_y_t << "   " << Int_Vertex_z_t << "   " << Ph_x_AtPMT_t << "  " << Ph_y_AtPMT_t <<"  "<< Ph_z_AtPMT_t <<endl;
+		}
 		Hit_t = 1;
 		SeenPhotons++;
 
@@ -344,8 +346,17 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 	double beta_el = pow(1-(pow(m_e/(Event_Energy+m_e),2)),0.5) ; //beta of the electron generated
 	double theta_Cher = acos(1/(beta_el*n)); //Cherenkov angle
 
+	//temp_out << theta_e << "  " << theta_Cher << endl;
+
 	int Photons = PEatMeV*Event_Energy;
 	int CherenkovPhotons = ChScRatio*Photons;
+
+	//Correction for the decimal part of CherenkovPhotons
+	double Remainder = ChScRatio*(double)Photons - CherenkovPhotons;
+	double Check = gRandom -> TRandom::Uniform(0,1);
+
+	if (Check < Remainder ) CherenkovPhotons++;
+
 
 	if (NEvent < 10) {
 		cout << "Event #" << NEvent << " :  " << Photons << " scintillation and " << CherenkovPhotons << " Cherenkov photons emitted";
@@ -362,6 +373,8 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 	//cout<<max_eEnergy<<endl;
 
 	//Generate SCINTILLATION Photons
+
+	
 	
 	for(int iPh=0; iPh<Photons; iPh++){
 
@@ -483,14 +496,16 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 		t -> Fill();
 	}
-
+	
 	return SeenPhotons;
+	
 }
 
 
 double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, string Output_Text) {
 
 	ifstream file(Configuration_Text);
+	//ofstream temp_out("Theta_e.txt");
 	vector<string> col1;
 	vector<string> col2;
 	string line;
@@ -537,6 +552,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	iss10 >> RandomIntVertex;
 	istringstream iss11(col2[11]);	
 	iss11 >> TimeCut;
+	istringstream iss12(col2[12]);	
+	iss11 >> WrittenOutput;
 
 	// ### End parsing	
 
@@ -655,8 +672,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	for (int i=0; i<NEvents; i++) {
 		SeenPhotons += GeneratePhotons(WriteOutputText, t, PMT_Position_Spherical, RandomIntVertex, i);
 		if (NEvents > 10) {  //to avoid floating point exceptions for NEvents < 10
-			if (i % (NEvents/10) == 0 && i != 0 && NEvents > 10) { // check if the index is a multiple of tenth
-			std::cout << i << "-th Event ; " << (i / (NEvents/10)) * 10 << "% of events simulated \n";
+			if (i % 100 == 0 && i != 0) { // check if the index is a multiple of tenth
+			std::cout << i << "-th Event ; " << round ( (double)i / (double)NEvents * 10000 ) / 100 << "% of events simulated \n";
     		}
 		}
 		
