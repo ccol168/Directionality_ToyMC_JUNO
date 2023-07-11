@@ -43,7 +43,7 @@
 #include "TMath.h"
 #include "Math/Util.h"
 
-int PMTNumber = 17611;
+int PMTNumber;
 double PMTRadius = 0.25;
 double JUNORadius = 19.0;
 double FV;
@@ -87,6 +87,7 @@ double Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t, Ph_r_AtPMT_t, Ph_theta_AtPMT_t, P
 double Int_Vertex_x_t,Int_Vertex_y_t,Int_Vertex_z_t;
 bool Type_t, IsFirst_t;
 int NEvent_t;
+double Cher_angle_t,Elec_angle_t;
 
 double Min_Distance_t;
 bool Hit_t;
@@ -402,6 +403,9 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		Ph_theta_AtPMT_t = theta_t; // TRUE ONLY WITHOUT ABSORPTION
 		Ph_phi_AtPMT_t = phi_t; // TRUE ONLY WITHOUT ABSORPTION
 
+		Cher_angle_t = theta_Cher;
+		Elec_angle_t = theta_e;
+
 		Closest_PMT_t = ClosestPMTIndex(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,PMT_Position_Spherical);
 
 		TravelledDistance_t = Distance(x_Int,y_Int,z_Int,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
@@ -471,6 +475,9 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		Ph_theta_AtPMT_t = theta_t; // TRUE ONLY WITHOUT ABSORPTION
 		Ph_phi_AtPMT_t = phi_t; // TRUE ONLY WITHOUT ABSORPTION
 
+		Cher_angle_t = theta_Cher;
+		Elec_angle_t = theta_e;
+
 		TravelledDistance_t = Distance(x_Int,y_Int,z_Int,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
 
 		Closest_PMT_t = ClosestPMTIndex(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,PMT_Position_Spherical);
@@ -490,7 +497,7 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		NEvent_t = NEvent;
 
 		//Generate the photon only if it hits the PMT
-		CheckHit(WriteOutputText,SeenPhotons);
+		SeenPhotons = CheckHit(WriteOutputText,SeenPhotons);
 
 		TotalPhotons++;
 
@@ -510,7 +517,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	vector<string> col2;
 	string line;
 	string cher_times, scint_times, typenu;
-	string origin_rootfile;
+	string origin_rootfile, PMTPositions;
 	bool RandomIntVertex;
 
 	// ### Parsing
@@ -553,7 +560,13 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	istringstream iss11(col2[11]);	
 	iss11 >> TimeCut;
 	istringstream iss12(col2[12]);	
-	iss11 >> WrittenOutput;
+	iss12 >> WrittenOutput;
+	istringstream iss13(col2[13]);	
+	iss13 >> PMTPositions;
+	istringstream iss14(col2[14]);	
+	iss14 >> PMTNumber;
+
+	//cout << "PMT Number " << PMTNumber << endl;
 
 	// ### End parsing	
 
@@ -613,6 +626,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	t->Branch("Neutrino_Energy", &Neutrino_Energy_t, "Neutrino_Energy/D");
 	t->Branch("Type", &Type_t, "Type/O");
 	t->Branch("NEvent",&NEvent_t,"NEvent/I");
+	t->Branch("Cherenkov_angle",&Cher_angle_t,"Cherenkov_angle/D");
+	t->Branch("Electron_angle",&Elec_angle_t,"Electron_angle/D");
 
 	t->Branch("Min_Distance", &Min_Distance_t, "Min_Distance/D");
 	t->Branch("Hit", &Hit_t, "Hit/O");
@@ -620,7 +635,7 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 	// LOAD PMTs position
 	ifstream ReadPMTPosition;
-	ReadPMTPosition.open("PMTPos_CD_LPMT.csv");
+	ReadPMTPosition.open(PMTPositions.c_str());
 	double blank;
 	int Index;
 	double x_PMT,y_PMT,z_PMT, r_PMT, theta_PMT, phi_PMT;
@@ -633,7 +648,10 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 		ReadPMTPosition >> blank >> blank;
 		CartesianToSpherical(r_PMT, theta_PMT, phi_PMT,x_PMT,y_PMT,z_PMT);
 		PMT_Position_Spherical.push_back({r_PMT,theta_PMT,phi_PMT});			
+		//cout << PMT << "   " <<r_PMT << "  " << theta_PMT << "   " << phi_PMT << endl; 
 	}	
+
+	//exit(1);
 
 	// #################### PMT_Position_Sperical is already sorted in phi ####################################
 	//sorting PMT_Position_Spherical in phi
