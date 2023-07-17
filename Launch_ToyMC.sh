@@ -33,10 +33,10 @@ cp CfgExample.txt Events/$RunName/
 
 echo
 
-./Directionality_ToyMC CfgExample.txt Events/$RunName/Output.root Events/$RunName/Output.txt
+./Directionality_ToyMC CfgExample.txt Events/$RunName/Output_$RunName.root Events/$RunName/Output_$RunName.txt
 
 echo 
-echo Launching Ordered_hits.py
+echo Launching Ordered_hits
 echo
 
-python Ordered_hits.py "Events/$RunName/Output.txt" "Events/$RunName/Nhits_prob.png" "Events/$RunName/Ang_dependence.png"
+./Ordered_hits Events/$RunName/Output_$RunName.root Events/$RunName/Analyzed_$RunName.root 60

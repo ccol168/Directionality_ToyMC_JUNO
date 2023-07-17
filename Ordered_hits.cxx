@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
 	double blank;
 	int Index;
 	double x_PMT,y_PMT,z_PMT, r_PMT, theta_PMT, phi_PMT;
-    int PMTNumber = 17611;
+    int PMTNumber = 4996;
 
 	for(int PMT=0;PMT<PMTNumber;PMT++){		
 		ReadPMTPosition >> Index;
@@ -131,8 +131,8 @@ int main(int argc, char** argv) {
     tree -> SetBranchAddress("Int_Vertex_y",&YVertex);
     tree -> SetBranchAddress("Int_Vertex_z",&ZVertex);
     tree -> SetBranchAddress("Closest_PMT",&ClosestPMT);
-    tree -> SetBranchAddress("Neutrino_theta",&nu_theta);
-    tree -> SetBranchAddress("Neutrino_phi",&nu_phi);
+    tree -> SetBranchAddress("Solar_theta",&nu_theta);
+    tree -> SetBranchAddress("Solar_phi",&nu_phi);
 
     int TotalPhotons = tree -> GetEntries();
 
@@ -142,6 +142,9 @@ int main(int argc, char** argv) {
     TH1F *Cherenkov_cos_alpha = new TH1F("Cherenkov_cos_alpha","Cherenkov_cos_alpha",60,-1,1);
     TH1F *Scint_cos_alpha = new TH1F("Scint_cos_alpha","Scint_cos_alpha",60,-1,1);
     TH1F *Scint_cos_alpha_all = new TH1F("Scint_cos_alpha_all","Scint_cos_alpha_all",60,-1,1);
+    TH1F *Cherenkov_cos_alpha_firstn = new TH1F(TString::Format("Cherenkov_cos_alpha_first%i",Nth_hits),TString::Format("Cherenkov_cos_alpha_first%i",Nth_hits),60,-1,1);
+    TH1F *Scint_cos_alpha_firstn = new TH1F(TString::Format("Scint_cos_alpha_first%i",Nth_hits),TString::Format("Scint_cos_alpha_first%i",Nth_hits),60,-1,1);
+
     //TH1F *CheckDifference = new TH1F ("")
 
     //cout << "Done" << endl;
@@ -257,7 +260,10 @@ int main(int argc, char** argv) {
 
 			if ( val_Type[FirstTenPlaces[k]] == 1) {
 				FirstTen[k]++;
-			} 
+                Cherenkov_cos_alpha_firstn -> Fill(val_cos_alpha[FirstTenPlaces[k]]);
+			} else {
+                Scint_cos_alpha_firstn -> Fill(val_cos_alpha[FirstTenPlaces[k]]);
+            }
             
             for (int h=0;h<Nth_hits;h++) {
                 if (k == h) {
@@ -292,6 +298,8 @@ int main(int argc, char** argv) {
     Scint_cos_alpha -> Write();
     Scint_cos_alpha_all -> Write();
     ChScRatio -> Write();
+    Scint_cos_alpha_firstn -> Write();
+    Cherenkov_cos_alpha_firstn -> Write();
 
     
     for (int i=0; i<Nth_hits;i++) {

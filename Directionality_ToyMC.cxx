@@ -90,12 +90,13 @@ int NEvent_t;
 double Cher_angle_t,Elec_angle_t;
 double Neutrino_theta_t;
 double Neutrino_phi_t;
+double Solar_theta_t, Solar_phi_t;
 
 double Min_Distance_t;
 bool Hit_t;
 bool fastmode; //does not save the events at more than 5 ns
 double TimeCut; //cut photons emitted at times lower than timecut
-bool WrittenOutput, FixedSun;
+bool WrittenOutput, FixedSun, IsBackgrounds;
 
 
 double MaxPMTDistance; //maximum distance in phi between two PMTs
@@ -338,7 +339,7 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 	double x_Int,y_Int,z_Int,r_Int,theta_Int,phi_Int;
 	double theta_vers,phi_vers,trash;
 	int SeenPhotons = 0;
-
+	double ph_Direction_x,ph_Direction_y,ph_Direction_z;
 	//Generate a random interaction vertex
 
 	if (RandomPos == true ) {
@@ -387,29 +388,39 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 	//Reading the solar positions
 	double solar_nu_theta, solar_nu_phi;
+	double solar_theta, solar_phi; //Direction opposite to the sun's position
 
 	if (FixedSun) {
 		
 		solar_nu_theta = 0.;
 		solar_nu_phi = 0.;
+		solar_theta = 0.;
+		solar_phi = 0.;
 
 	} else {
 		double blank;
 		double solar_az,solar_alt;
-		double solar_theta, solar_phi;
-	
-
+		
 		if (ReadSolarPosition.peek() != EOF) ReadSolarPosition >> solar_az >> solar_alt >> blank >> blank ;
 		else {
 			cerr << "ERROR: Solar positions terminated, you generated more than 10yr of events" << endl;
 			exit(1);
 		}
 
-		solar_phi = M_PI_2 - DegToRad(solar_alt);
-		solar_theta = DegToRad(solar_az); //TO CHECK, DEPENDS FROM THE SYSTEM OF COORDINATES OF THE PMTs
+		solar_phi = Pbc_phi(M_PI-(M_PI_2 - DegToRad(solar_alt)));
+		solar_theta = Pbc_theta(M_PI + DegToRad(solar_az) ); //TO CHECK, DEPENDS FROM THE SYSTEM OF COORDINATES OF THE PMTs
 
-		solar_nu_phi = Pbc_phi(M_PI-solar_phi);
-		solar_nu_theta = Pbc_theta(solar_theta + M_PI);
+		if (IsBackgrounds) {
+			solar_nu_theta = gRandom -> TRandom::Uniform(2*PI);
+			solar_nu_phi = TMath::ACos(-1.+2.*gRandom->TRandom::Uniform(0,1));
+		} else {
+
+			solar_nu_phi = solar_phi;
+			solar_nu_theta = solar_theta;
+
+		}
+
+		
 	}
 
 	
@@ -421,6 +432,20 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 	if (NEvent == 10 ) exit(1);
 */
+
+	//Generate Electron direction
+	Tuple a;
+	Tuple b;
+
+	a = Generate_Cone(solar_nu_theta,solar_nu_phi,theta_e);
+
+	double El_theta = a.x;
+	double El_phi = a.y;
+
+	double El_x , El_y, El_z;
+
+	SphericalToCartesian(El_x,El_y,El_z,1.,El_theta,El_phi);
+
 	//Generate SCINTILLATION Photons
 
 	for(int iPh=0; iPh<Photons; iPh++){
@@ -439,9 +464,9 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 		theta_vers = gRandom->TRandom::Uniform(2*PI);
 		phi_vers = TMath::ACos(-1.+2.*gRandom->TRandom::Uniform(0,1));
-		SphericalToCartesian(El_Direction_x_t,El_Direction_y_t,El_Direction_z_t,1,theta_vers,phi_vers);
+		SphericalToCartesian(ph_Direction_x,ph_Direction_y,ph_Direction_z,1,theta_vers,phi_vers);
 
-		MovePhoton(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,x_Int,y_Int,z_Int,El_Direction_x_t,El_Direction_y_t,El_Direction_z_t);
+		MovePhoton(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,x_Int,y_Int,z_Int,ph_Direction_x,ph_Direction_y,ph_Direction_z);
 
 		CartesianToSpherical(trash,theta_t,phi_t,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
 
@@ -462,12 +487,18 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		Int_Vertex_x_t = x_Int;
 		Int_Vertex_y_t = y_Int;
 		Int_Vertex_z_t = z_Int;
+
+		El_Direction_x_t = El_x;
+		El_Direction_y_t = El_y;
+		El_Direction_z_t = El_z;
 		
 		Arr_Time_t = Start_Time_t + (TravelledDistance_t/c*n) * pow(10,9);
 
 		NEvent_t = NEvent;
 		Neutrino_theta_t = solar_nu_theta;
 		Neutrino_phi_t = solar_nu_phi;
+		Solar_phi_t = solar_phi;
+		Solar_theta_t = solar_theta;
 
 		if (IsFirstFlag) {
 			IsFirst_t = true;
@@ -492,10 +523,6 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 	//Generate CHERENKOV Photons
 
-	Tuple a;
-	Tuple b;
-
-	a = Generate_Cone(solar_nu_theta,solar_nu_phi,theta_e);
 
 	for (int iPh=0; iPh<CherenkovPhotons; iPh++) {
 
@@ -509,13 +536,13 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 			continue;
 		}
 
-		b = Generate_Cone(a.x,a.y,theta_Cher);
+		b = Generate_Cone(El_theta,El_phi,theta_Cher);
 
 		theta_vers = b.x;
 		phi_vers = b.y;
-		SphericalToCartesian(El_Direction_x_t,El_Direction_y_t,El_Direction_z_t,1,theta_vers,phi_vers);
+		SphericalToCartesian(ph_Direction_x,ph_Direction_y,ph_Direction_z,1,theta_vers,phi_vers);
 
-		MovePhoton(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,x_Int,y_Int,z_Int,El_Direction_x_t,El_Direction_y_t,El_Direction_z_t);
+		MovePhoton(Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t,x_Int,y_Int,z_Int,ph_Direction_x,ph_Direction_y,ph_Direction_z);
 
 		CartesianToSpherical(trash,theta_t,phi_t,Ph_x_AtPMT_t,Ph_y_AtPMT_t,Ph_z_AtPMT_t);
 
@@ -538,6 +565,10 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 		Int_Vertex_y_t = y_Int;
 		Int_Vertex_z_t = z_Int;
 
+		El_Direction_x_t = El_x;
+		El_Direction_y_t = El_y;
+		El_Direction_z_t = El_z;
+
 		Arr_Time_t = Start_Time_t + (TravelledDistance_t/c*n)* pow(10,9);
 
 		IsFirst_t = false;
@@ -546,6 +577,9 @@ int GeneratePhotons (ofstream& WriteOutputText, TTree* t, vector<vector<double>>
 
 		Neutrino_theta_t = solar_nu_theta;
 		Neutrino_phi_t = solar_nu_phi;
+		Solar_phi_t = solar_phi;
+		Solar_theta_t = solar_theta;
+
 
 		//Generate the photon only if it hits the PMT
 		SeenPhotons = CheckHit(WriteOutputText,SeenPhotons);
@@ -620,6 +654,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	iss15 >> SolarPositions;
 	istringstream iss16(col2[16]);
 	iss16 >> FixedSun;
+	istringstream iss17(col2[17]);
+	iss17 >> IsBackgrounds;
 
 	//cout << "PMT Number " << PMTNumber << endl;
 
@@ -686,6 +722,8 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 
 	t->Branch("Neutrino_theta",&Neutrino_theta_t,"Neutrino_theta/D");
 	t->Branch("Neutrino_phi",&Neutrino_phi_t,"Neutrino_phi/D");
+	t->Branch("Solar_theta",&Solar_theta_t,"Solar_theta/D");
+	t->Branch("Solar_phi",&Solar_phi_t,"Solar_phi/D");
 
 	t->Branch("Min_Distance", &Min_Distance_t, "Min_Distance/D");
 	t->Branch("Hit", &Hit_t, "Hit/O");

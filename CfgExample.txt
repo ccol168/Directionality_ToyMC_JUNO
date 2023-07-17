@@ -1,6 +1,6 @@
 PEatMeV 2639
 ChScRatio 0.0022
-NEvents 10000
+NEvents 100
 FV 14.0
 OriginRootfile My_Rootfiles/Elecsim_PDFs_FV14_rc1.root
 CherenkovTimes Hama_Cherenkov_Times
@@ -8,10 +8,11 @@ ScintTimes Hama_Scint_Times
 Nu_type pep
 Fastmode 1
 Min_eEnergy 0.8
-RandomIntVertex 0
+RandomIntVertex 1
 Time_Cut -10000
 WrittenOutput 0
 PMTPositions PMTPos_CD_LPMT_onlyHama.csv
 PMTNumber 4996
 SolarPositions Sun_Position/sunposition_since1Jan2024_for10years_PDFcreation.txt
-FixedSun 1
+FixedSun 0
+IsBackgrounds 0
