@@ -63,7 +63,7 @@ double pep_energy = 1.44; //MeV  energy of a pep neutrino
 double nu_energy;
 //double Event_Energy = 0.5; //MeV
 double G_F = 1.1663787*pow(10,-11); //MeV^-2  Fermi constant
-double sin2_thetaW = 0.23116; //Weinberg angle
+double sin2_thetaW = 0.23121; //Weinberg angle
 
 double max_eEnergy; //  maximum electron energy from a neutrino scattering
 double min_eEnergy; // minimum deposited energy from a neutrino scattering
@@ -168,11 +168,47 @@ double DistanceOnASphere(double r, double theta1, double phi1, double theta2, do
 
 //calculate 1st order cross section for a neutrino-electron elastic scattering
 double cross_section (double T) {
-	double gl = 0.5+sin2_thetaW;
-	double gr = sin2_thetaW;
+	double gl = 0.5 - sin2_thetaW -1 ;
+	double gr = - sin2_thetaW;
 
-	return ((2*(pow(G_F,2))*m_e)/nu_energy)*(pow(gl,2) + pow(gr,2)*pow(1-T/nu_energy,2) - gl*gr*m_e*T/pow(nu_energy,2));
+	return ((2*(pow(G_F,2))*m_e)/M_PI)*(pow(gl,2) + pow(gr,2)*pow(1-T/nu_energy,2) - gl*gr*m_e*T/pow(nu_energy,2));
 }
+
+double cross_section_nuX (double T) {
+	double g_L = 0.5 - sin2_thetaW;
+	double g_R = -sin2_thetaW;
+
+	return 2*m_e*G_F*G_F/M_PI * (pow(g_L,2) + pow(g_R,2)*pow(1-T/nu_energy,2) - g_L*g_R*m_e/nu_energy*T/nu_energy);
+}
+
+double survival_probability () {
+
+	double E_nu = nu_energy*pow(10,6);
+	//datas from pep, see Xuefeng technote
+	double V_x = 5.13e-12;
+	double Delta_V_x2__V_x2 = 0.076;
+
+	double theta12 = asin(sqrt(0.307));
+	double theta13 = asin(sqrt(0.0220));
+	double Delta_m2_12 = 7.53e-5; 
+
+	double epsilon12 = 2*V_x*E_nu/Delta_m2_12;
+	double alpha = cos(2*theta12) - ( pow(cos(theta13),2) * epsilon12 );
+	double cos_2theta_m12 = alpha / sqrt(alpha*alpha + pow(sin(2*theta12),2) );
+	double d_x = 3/2 * (pow(epsilon12,2)*pow(sin(2*theta12),2))/(pow(pow(cos(2*theta12) - epsilon12 ,2) + pow(sin(2*theta12),2),2)) * Delta_V_x2__V_x2;
+	double Pad_2 = 0.5 + 0.5*(1-d_x)*cos(2*theta12)*cos_2theta_m12;
+
+	return pow(cos(theta13),4)*Pad_2 + pow(sin(theta13),4);
+
+}
+double total_cross_section (double T) {
+
+	return survival_probability()*cross_section(T) + (1-survival_probability())*cross_section_nuX(T);
+
+}
+
+
+
 
 //sample cross_section with an accept-reject method
 double CalculateEventEnergy () {
@@ -182,8 +218,8 @@ double CalculateEventEnergy () {
 	while (flag == false) {
 		flag = false;
 		EventEnergy = gRandom -> Uniform(min_eEnergy,max_eEnergy);
-		test = gRandom -> Uniform(0.,cross_section(0.)); //the maximum cross section is at T=0
-		if (test < cross_section(EventEnergy)) {
+		test = gRandom -> Uniform(0.,total_cross_section(0.)); //the maximum cross section is at T=0
+		if (test < total_cross_section(EventEnergy)) {
 			flag = true;
 		}
 	}
@@ -679,6 +715,11 @@ double Directionality_ToyMC(string Configuration_Text, string Output_Rootfile, s
 	}
 
 	max_eEnergy = 2*pow(nu_energy,2)/(m_e+2*nu_energy); //MeV
+
+	cout << "Nu_e survival Probability = " << survival_probability() << endl;
+	cout << "Nu_e cross section @ 1 MeV = " << cross_section(1.0) << endl;
+	cout << "Nu_x cross section @ 1 MeV = " << cross_section_nuX(1.0) << endl;
+	cout << "Total cross section @ 1 MeV = " << total_cross_section(1.0) << endl;
 
 	std::vector<vector<double>> PMT_Position_Spherical;		
 		
