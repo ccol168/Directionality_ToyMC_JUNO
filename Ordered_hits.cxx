@@ -144,6 +144,7 @@ int main(int argc, char** argv) {
     TH1F *Scint_cos_alpha_all = new TH1F("Scint_cos_alpha_all","Scint_cos_alpha_all",60,-1,1);
     TH1F *Cherenkov_cos_alpha_firstn = new TH1F(TString::Format("Cherenkov_cos_alpha_first%i",Nth_hits),TString::Format("Cherenkov_cos_alpha_first%i",Nth_hits),60,-1,1);
     TH1F *Scint_cos_alpha_firstn = new TH1F(TString::Format("Scint_cos_alpha_first%i",Nth_hits),TString::Format("Scint_cos_alpha_first%i",Nth_hits),60,-1,1);
+    TH1F *Cherenkov_cos_alpha_8th_hit = new TH1F("Cherenkov_cos_alpha_8th_hit","Cherenkov_cos_alpha_8th_hit",60,-1,1);
 
     //TH1F *CheckDifference = new TH1F ("")
 
@@ -268,7 +269,12 @@ int main(int argc, char** argv) {
             for (int h=0;h<Nth_hits;h++) {
                 if (k == h) {
                     Nth_hit_cos_alpha[h] -> Fill(val_cos_alpha[FirstTenPlaces[k]]);
-                }
+
+                    if (k==7 && val_Type[FirstTenPlaces[k]] == 1) {
+                        Cherenkov_cos_alpha_8th_hit ->  Fill(val_cos_alpha[FirstTenPlaces[k]]);
+                    }
+
+                } 
             }
 
 		}
@@ -300,6 +306,7 @@ int main(int argc, char** argv) {
     ChScRatio -> Write();
     Scint_cos_alpha_firstn -> Write();
     Cherenkov_cos_alpha_firstn -> Write();
+    Cherenkov_cos_alpha_8th_hit -> Write();
 
     
     for (int i=0; i<Nth_hits;i++) {
